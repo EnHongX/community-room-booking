@@ -157,6 +157,7 @@ function App() {
   };
 
   const getRoomIcon = (name) => {
+    if (!name) return '🏠';
     if (name.includes('多功能')) return '🏛️';
     if (name.includes('图书')) return '📚';
     if (name.includes('健身')) return '💪';
@@ -187,7 +188,7 @@ function App() {
               className="room-card"
               hoverable
               onClick={() => handleRoomClick(room)}
-              bodyStyle={{ padding: '20px' }}
+              styles={{ body: { padding: '20px' } }}
             >
               <div style={{ marginBottom: '12px' }}>
                 <span style={{ fontSize: '48px' }}>{getRoomIcon(room.name)}</span>
