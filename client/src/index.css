@@ -1,0 +1,133 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.booking-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 40px 24px;
+  margin: -24px -24px 24px -24px;
+  border-radius: 0 0 8px 8px;
+  color: white;
+}
+
+.page-header h1 {
+  color: white;
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.page-header p {
+  color: rgba(255, 255, 255, 0.85);
+  margin: 8px 0 0 0;
+  font-size: 14px;
+}
+
+.room-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.room-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+.room-card.selected {
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.room-card .ant-card-body {
+  padding: 16px;
+}
+
+.room-card .room-capacity {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+.booking-modal .ant-modal-header {
+  border-bottom: none;
+  padding: 20px 24px;
+}
+
+.booking-modal .ant-modal-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.booking-modal .ant-modal-body {
+  padding: 0 24px 24px 24px;
+}
+
+.time-slot {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.time-slot.booked {
+  background: #fff2f0;
+  border-left: 3px solid #ff4d4f;
+}
+
+.time-slot.available {
+  background: #f6ffed;
+  border-left: 3px solid #52c41a;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.stats-card {
+  text-align: center;
+  padding: 20px;
+  border-radius: 8px;
+  background: white;
+}
+
+.stats-card .stat-value {
+  font-size: 32px;
+  font-weight: 600;
+  color: #667eea;
+}
+
+.stats-card .stat-label {
+  font-size: 14px;
+  color: #666;
+  margin-top: 4px;
+}
