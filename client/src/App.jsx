@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, Link } from 'react-router-dom';
 import {
   Card,
   Row,
@@ -23,14 +24,16 @@ import {
   ClockCircleOutlined,
   UserOutlined,
   PhoneOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  UserAddOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
+import Register from './Register';
 
 const { Title, Text } = Typography;
 
-function App() {
+function HomePage() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -177,8 +180,22 @@ function App() {
   return (
     <div className="booking-container">
       <div className="page-header">
-        <Title level={2}>社区活动室预约系统</Title>
-        <p>选择下方活动室进行预约，便捷高效地使用社区资源</p>
+        <div className="header-content">
+          <div>
+            <Title level={2}>社区活动室预约系统</Title>
+            <p>选择下方活动室进行预约，便捷高效地使用社区资源</p>
+          </div>
+          <Link to="/register">
+            <Button 
+              type="default" 
+              size="large"
+              icon={<UserAddOutlined />}
+              className="register-nav-button"
+            >
+              用户注册
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <Row gutter={[16, 16]}>
@@ -409,6 +426,15 @@ function App() {
         )}
       </Modal>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/register" element={<Register />} />
+    </Routes>
   );
 }
 
