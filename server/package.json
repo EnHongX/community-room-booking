@@ -9,7 +9,7 @@
   },
   "keywords": [
     "express",
-    "sqlite",
+    "postgresql",
     "booking"
   ],
   "author": "",
@@ -18,7 +18,9 @@
     "bcrypt": "^6.0.0",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^4.18.2",
+    "pg": "^8.20.0",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
