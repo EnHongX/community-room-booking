@@ -25,7 +25,9 @@ import {
   UserOutlined,
   PhoneOutlined,
   InfoCircleOutlined,
-  LoginOutlined
+  LoginOutlined,
+  UserAddOutlined,
+  HomeOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -180,50 +182,73 @@ function HomePage() {
 
   return (
     <div className="booking-container">
+      <div className="top-nav-bar">
+        <div className="nav-content">
+          <div className="nav-brand">
+            <HomeOutlined className="nav-icon" />
+            <span className="nav-title">社区活动室预约系统</span>
+          </div>
+          <div className="nav-actions">
+            <Link to="/login">
+              <Button 
+                type="default" 
+                size="large"
+                icon={<LoginOutlined />}
+                className="nav-login-button"
+              >
+                登录
+              </Button>
+            </Link>
+            <Link to="/register">
+              <Button 
+                type="primary" 
+                size="large"
+                icon={<UserAddOutlined />}
+                className="nav-register-button"
+              >
+                注册
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+      
       <div className="page-header">
         <div className="header-content">
-          <div>
-            <Title level={2}>社区活动室预约系统</Title>
-            <p>选择下方活动室进行预约，便捷高效地使用社区资源</p>
+          <div className="header-text">
+            <Title level={1}>欢迎使用社区活动室预约系统</Title>
+            <p>便捷预约，高效管理，让社区资源服务更多人</p>
           </div>
-          <Link to="/login">
-            <Button 
-              type="default" 
-              size="large"
-              icon={<LoginOutlined />}
-              className="login-nav-button"
-            >
-              用户登录
-            </Button>
-          </Link>
         </div>
       </div>
 
-      <Row gutter={[16, 16]}>
-        {rooms.map((room) => (
-          <Col xs={24} sm={12} lg={8} key={room.id}>
-            <Card
-              className="room-card"
-              hoverable
-              onClick={() => handleRoomClick(room)}
-              styles={{ body: { padding: '20px' } }}
-            >
-              <div style={{ marginBottom: '12px' }}>
-                <span style={{ fontSize: '48px' }}>{getRoomIcon(room.name)}</span>
-              </div>
-              <Title level={4} style={{ marginBottom: '8px' }}>{room.name}</Title>
-              <Text type="secondary" style={{ display: 'block', marginBottom: '12px' }}>
-                {room.description}
-              </Text>
-              <Space>
-                <Tag icon={<TeamOutlined />} color="blue">
-                  容纳 {room.capacity} 人
-                </Tag>
-              </Space>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+      <div className="content-area">
+        <Row gutter={[16, 16]}>
+          {rooms.map((room) => (
+            <Col xs={24} sm={12} lg={8} key={room.id}>
+              <Card
+                className="room-card"
+                hoverable
+                onClick={() => handleRoomClick(room)}
+                styles={{ body: { padding: '20px' } }}
+              >
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontSize: '48px' }}>{getRoomIcon(room.name)}</span>
+                </div>
+                <Title level={4} style={{ marginBottom: '8px' }}>{room.name}</Title>
+                <Text type="secondary" style={{ display: 'block', marginBottom: '12px' }}>
+                  {room.description}
+                </Text>
+                <Space>
+                  <Tag icon={<TeamOutlined />} color="blue">
+                    容纳 {room.capacity} 人
+                  </Tag>
+                </Space>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </div>
 
       <Modal
         title={
@@ -433,7 +458,7 @@ function HomePage() {
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Login />} />
+      <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/home" element={<HomePage />} />
