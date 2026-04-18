@@ -11,8 +11,7 @@ import {
   Divider,
   Tabs,
   Spin,
-  Dropdown,
-  Link as AntLink
+  Dropdown
 } from 'antd';
 import {
   UserOutlined,
