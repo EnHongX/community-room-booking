@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import {
   Card,
   Row,
@@ -16,7 +16,9 @@ import {
   Tag,
   Typography,
   Divider,
-  Alert
+  Alert,
+  Dropdown,
+  Avatar
 } from 'antd';
 import {
   TeamOutlined,
@@ -27,14 +29,29 @@ import {
   InfoCircleOutlined,
   LoginOutlined,
   UserAddOutlined,
-  HomeOutlined
+  HomeOutlined,
+  LogoutOutlined,
+  SettingOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import Register from './Register';
 import Login from './Login';
+import Profile from './Profile';
 
 const { Title, Text } = Typography;
+
+const generateDefaultAvatar = (email) => {
+  const colors = [
+    '#667eea', '#764ba2', '#f093fb', '#f5576c',
+    '#4facfe', '#00f2fe', '#43e97b', '#38f9d7',
+    '#fa709a', '#fee140', '#30cfd0', '#330867'
+  ];
+  const index = email ? email.charCodeAt(0) % colors.length : 0;
+  const bgColor = colors[index];
+  const initial = email ? email.charAt(0).toUpperCase() : 'U';
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(initial)}&background=${bgColor.slice(1)}&color=fff&size=128&bold=true`;
+};
 
 function HomePage() {
   const [rooms, setRooms] = useState([]);
@@ -44,11 +61,33 @@ function HomePage() {
   const [submitting, setSubmitting] = useState(false);
   const [checkingConflict, setCheckingConflict] = useState(false);
   const [dateBookings, setDateBookings] = useState([]);
+  const [user, setUser] = useState(null);
   const [form] = Form.useForm();
+  const navigate = useNavigate();
+
+  const fetchUserInfo = useCallback(async () => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        const response = await axios.get(`/api/users/${userData.id}`);
+        if (response.data.success) {
+          setUser(response.data.data);
+          localStorage.setItem('user', JSON.stringify(response.data.data));
+        } else {
+          setUser(userData);
+        }
+      } catch (error) {
+        console.error('获取用户信息失败:', error);
+        setUser(JSON.parse(storedUser));
+      }
+    }
+  }, []);
 
   useEffect(() => {
     fetchRooms();
-  }, []);
+    fetchUserInfo();
+  }, [fetchUserInfo]);
 
   const fetchRooms = async () => {
     try {
@@ -162,6 +201,13 @@ function HomePage() {
     return current && current < dayjs().startOf('day');
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+    message.success('已退出登录');
+    navigate('/home');
+  };
+
   const getRoomIcon = (name) => {
     if (!name) return '🏠';
     if (name.includes('多功能')) return '🏛️';
@@ -189,26 +235,67 @@ function HomePage() {
             <span className="nav-title">社区活动室预约系统</span>
           </div>
           <div className="nav-actions">
-            <Link to="/login">
-              <Button 
-                type="default" 
-                size="large"
-                icon={<LoginOutlined />}
-                className="nav-login-button"
+            {!user ? (
+              <>
+                <Link to="/login">
+                  <Button 
+                    type="default" 
+                    size="large"
+                    icon={<LoginOutlined />}
+                    className="nav-login-button"
+                  >
+                    登录
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button 
+                    type="primary" 
+                    size="large"
+                    icon={<UserAddOutlined />}
+                    className="nav-register-button"
+                  >
+                    注册
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <Dropdown
+                menu={{
+                  items: [
+                    {
+                      key: 'profile',
+                      icon: <SettingOutlined />,
+                      label: (
+                        <Link to={`/profile/${user.id}`}>
+                          个人资料
+                        </Link>
+                      )
+                    },
+                    {
+                      type: 'divider'
+                    },
+                    {
+                      key: 'logout',
+                      icon: <LogoutOutlined />,
+                      label: '退出登录',
+                      onClick: handleLogout
+                    }
+                  ]
+                }}
+                placement="bottomRight"
+                trigger={['hover']}
               >
-                登录
-              </Button>
-            </Link>
-            <Link to="/register">
-              <Button 
-                type="primary" 
-                size="large"
-                icon={<UserAddOutlined />}
-                className="nav-register-button"
-              >
-                注册
-              </Button>
-            </Link>
+                <div className="user-dropdown-trigger">
+                  <Avatar 
+                    size={40} 
+                    src={user.avatar || generateDefaultAvatar(user.email)}
+                    icon={<UserOutlined />}
+                    className="user-avatar"
+                  />
+                  <span className="user-email">{user.email}</span>
+                </div>
+              </Dropdown>
+            )}
           </div>
         </div>
       </div>
@@ -462,6 +549,7 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/home" element={<HomePage />} />
+      <Route path="/profile/:userId" element={<Profile />} />
     </Routes>
   );
 }

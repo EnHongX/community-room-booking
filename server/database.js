@@ -12,9 +12,16 @@ const initDb = () => {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           email TEXT NOT NULL UNIQUE,
           password TEXT NOT NULL,
+          avatar TEXT DEFAULT '',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `);
+      
+      db.run(`ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT ''`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('添加avatar字段失败:', err);
+        }
+      });
 
       db.run(`
         CREATE TABLE IF NOT EXISTS rooms (

@@ -39,6 +39,8 @@ function Login() {
       });
 
       if (response.data.success) {
+        const userData = response.data.data;
+        localStorage.setItem('user', JSON.stringify(userData));
         setUserEmail(email);
         setLoginSuccess(true);
         message.success(response.data.message);
