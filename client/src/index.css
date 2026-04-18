@@ -242,3 +242,174 @@ body {
     padding: 16px;
   }
 }
+
+.register-full-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.register-full-page::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  animation: float 20s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(30px, 30px);
+  }
+}
+
+.register-content-wrapper {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.register-card-full {
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.register-card-full .ant-card-body {
+  padding: 48px;
+}
+
+.register-title-section {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.register-title {
+  margin-bottom: 8px !important;
+  color: #333;
+}
+
+.register-subtitle {
+  font-size: 14px;
+}
+
+.register-form .ant-form-item-label > label {
+  font-weight: 500;
+  color: #333;
+}
+
+.register-form .ant-input-affix-wrapper,
+.register-form .ant-input {
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 16px;
+}
+
+.register-form .ant-input-affix-wrapper:hover,
+.register-form .ant-input:hover,
+.register-form .ant-input-affix-wrapper-focused,
+.register-form .ant-input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.register-button-full {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  height: 52px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.register-button-full:hover {
+  background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.back-login-button {
+  height: 48px;
+  font-size: 15px;
+  border-radius: 8px;
+  border-color: #d9d9d9;
+  color: #666;
+  transition: all 0.3s ease;
+}
+
+.back-login-button:hover {
+  border-color: #667eea !important;
+  color: #667eea !important;
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.success-card-full {
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
+  min-width: 400px;
+}
+
+.success-card-full .ant-card-body {
+  padding: 48px;
+}
+
+.success-card-full .ant-result-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #52c41a;
+}
+
+.success-card-full .ant-btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  height: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.success-card-full .ant-btn-primary:hover {
+  background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%) !important;
+}
+
+@media (max-width: 576px) {
+  .register-content-wrapper {
+    padding: 16px;
+  }
+
+  .register-card-full .ant-card-body {
+    padding: 32px 24px;
+  }
+
+  .register-title-section {
+    margin-bottom: 32px;
+  }
+
+  .register-title {
+    font-size: 22px !important;
+  }
+
+  .success-card-full {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .success-card-full .ant-card-body {
+    padding: 32px 24px;
+  }
+}
