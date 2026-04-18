@@ -36,6 +36,7 @@ async function startServer() {
       console.log(`服务地址: http://localhost:${PORT}`);
       console.log(`API 文档: `);
       console.log(`  - GET  /api/health          - 健康检查`);
+      console.log(`  - POST /api/users/login     - 用户登录`);
       console.log(`  - POST /api/users/register  - 用户注册`);
       console.log(`  - GET  /api/rooms           - 获取活动室列表`);
       console.log(`  - GET  /api/rooms/:id       - 获取活动室详情`);

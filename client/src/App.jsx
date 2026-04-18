@@ -25,11 +25,12 @@ import {
   UserOutlined,
   PhoneOutlined,
   InfoCircleOutlined,
-  UserAddOutlined
+  LoginOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import Register from './Register';
+import Login from './Login';
 
 const { Title, Text } = Typography;
 
@@ -185,14 +186,14 @@ function HomePage() {
             <Title level={2}>社区活动室预约系统</Title>
             <p>选择下方活动室进行预约，便捷高效地使用社区资源</p>
           </div>
-          <Link to="/register">
+          <Link to="/login">
             <Button 
               type="default" 
               size="large"
-              icon={<UserAddOutlined />}
-              className="register-nav-button"
+              icon={<LoginOutlined />}
+              className="login-nav-button"
             >
-              用户注册
+              用户登录
             </Button>
           </Link>
         </div>
@@ -432,7 +433,8 @@ function HomePage() {
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Register />} />
+      <Route path="/" element={<Login />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/home" element={<HomePage />} />
     </Routes>
