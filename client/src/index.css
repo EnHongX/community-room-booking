@@ -131,3 +131,114 @@ body {
   color: #666;
   margin-top: 4px;
 }
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.register-nav-button {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.register-nav-button:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  color: white !important;
+}
+
+.register-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.register-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 40px 24px;
+  margin: -24px -24px 32px -24px;
+  border-radius: 0 0 8px 8px;
+  color: white;
+  text-align: center;
+}
+
+.register-header h2 {
+  color: white;
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.register-header p {
+  color: rgba(255, 255, 255, 0.85);
+  margin: 8px 0 0 0;
+  font-size: 14px;
+}
+
+.register-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.register-card .ant-card-body {
+  padding: 40px;
+}
+
+.register-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  height: 48px;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.register-button:hover {
+  background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.success-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  margin-top: 40px;
+}
+
+.success-card .ant-result {
+  padding: 40px;
+}
+
+.success-card .ant-result-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #52c41a;
+}
+
+@media (max-width: 576px) {
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .register-card .ant-card-body {
+    padding: 24px;
+  }
+
+  .register-header {
+    padding: 24px 16px;
+    margin: -16px -16px 24px -16px;
+  }
+
+  .register-container {
+    padding: 16px;
+  }
+}
