@@ -7,8 +7,6 @@ import {
   message,
   Typography,
   Space,
-  Row,
-  Col,
   Result
 } from 'antd';
 import {
@@ -96,105 +94,101 @@ function Register() {
   return (
     <div className="register-full-page">
       <div className="register-content-wrapper">
-        <Row justify="center" align="middle" style={{ minHeight: '100%' }}>
-          <Col xs={24} sm={20} md={16} lg={12} xl={8}>
-            <Card className="register-card-full" bordered={false}>
-              <div className="register-title-section">
-                <Title level={2} className="register-title">
-                  <UserOutlined style={{ marginRight: '12px' }} />
-                  用户注册
-                </Title>
-                <Text type="secondary" className="register-subtitle">
-                  创建账户，开始使用社区活动室预约系统
-                </Text>
-              </div>
+        <Card className="register-card-full" bordered={false}>
+          <div className="register-title-section">
+            <Title level={2} className="register-title">
+              <UserOutlined style={{ marginRight: '12px' }} />
+              用户注册
+            </Title>
+            <Text type="secondary" className="register-subtitle">
+              创建账户，开始使用社区活动室预约系统
+            </Text>
+          </div>
 
-              <Form
-                form={form}
-                layout="vertical"
-                onFinish={handleSubmit}
-                size="large"
-                className="register-form"
-              >
-                <Form.Item
-                  name="email"
-                  label="邮箱地址"
-                  rules={[
-                    { required: true, message: '请输入邮箱地址' },
-                    { type: 'email', message: '请输入有效的邮箱地址' }
-                  ]}
-                  validateTrigger="onBlur"
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSubmit}
+            size="large"
+            className="register-form"
+          >
+            <Form.Item
+              name="email"
+              label="邮箱地址"
+              rules={[
+                { required: true, message: '请输入邮箱地址' },
+                { type: 'email', message: '请输入有效的邮箱地址' }
+              ]}
+              validateTrigger="onBlur"
+            >
+              <Input 
+                placeholder="请输入您的邮箱地址" 
+                prefix={<MailOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="password"
+              label="设置密码"
+              rules={[
+                { required: true, message: '请输入密码' },
+                { min: 6, message: '密码长度至少为6位' }
+              ]}
+              validateTrigger="onBlur"
+            >
+              <Input.Password 
+                placeholder="请设置密码（至少6位）" 
+                prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="confirmPassword"
+              label="确认密码"
+              dependencies={['password']}
+              rules={[
+                { required: true, message: '请确认密码' },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue('password') === value) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('两次输入的密码不一致'));
+                  },
+                }),
+              ]}
+              validateTrigger="onBlur"
+            >
+              <Input.Password 
+                placeholder="请再次输入密码" 
+                prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+              />
+            </Form.Item>
+
+            <Form.Item style={{ marginBottom: 0, marginTop: '32px' }}>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Button 
+                  type="primary" 
+                  htmlType="submit" 
+                  loading={loading}
+                  size="large"
+                  block
+                  className="register-button-full"
                 >
-                  <Input 
-                    placeholder="请输入您的邮箱地址" 
-                    prefix={<MailOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  name="password"
-                  label="设置密码"
-                  rules={[
-                    { required: true, message: '请输入密码' },
-                    { min: 6, message: '密码长度至少为6位' }
-                  ]}
-                  validateTrigger="onBlur"
+                  立即注册
+                </Button>
+                <Button 
+                  icon={<LoginOutlined />} 
+                  onClick={handleBackToLogin}
+                  block
+                  className="back-login-button"
                 >
-                  <Input.Password 
-                    placeholder="请设置密码（至少6位）" 
-                    prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  name="confirmPassword"
-                  label="确认密码"
-                  dependencies={['password']}
-                  rules={[
-                    { required: true, message: '请确认密码' },
-                    ({ getFieldValue }) => ({
-                      validator(_, value) {
-                        if (!value || getFieldValue('password') === value) {
-                          return Promise.resolve();
-                        }
-                        return Promise.reject(new Error('两次输入的密码不一致'));
-                      },
-                    }),
-                  ]}
-                  validateTrigger="onBlur"
-                >
-                  <Input.Password 
-                    placeholder="请再次输入密码" 
-                    prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
-                  />
-                </Form.Item>
-
-                <Form.Item style={{ marginBottom: 0, marginTop: '32px' }}>
-                  <Space direction="vertical" style={{ width: '100%' }}>
-                    <Button 
-                      type="primary" 
-                      htmlType="submit" 
-                      loading={loading}
-                      size="large"
-                      block
-                      className="register-button-full"
-                    >
-                      立即注册
-                    </Button>
-                    <Button 
-                      icon={<LoginOutlined />} 
-                      onClick={handleBackToLogin}
-                      block
-                      className="back-login-button"
-                    >
-                      返回登录
-                    </Button>
-                  </Space>
-                </Form.Item>
-              </Form>
-            </Card>
-          </Col>
-        </Row>
+                  返回登录
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        </Card>
       </div>
     </div>
   );
