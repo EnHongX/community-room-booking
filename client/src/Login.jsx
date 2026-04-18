@@ -13,20 +13,19 @@ import {
   UserOutlined,
   LockOutlined,
   MailOutlined,
-  ArrowLeftOutlined,
-  CheckCircleOutlined,
-  LoginOutlined
+  UserAddOutlined,
+  HomeOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 
-function Register() {
+function Login() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [registerSuccess, setRegisterSuccess] = useState(false);
-  const [registeredEmail, setRegisteredEmail] = useState('');
+  const [loginSuccess, setLoginSuccess] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (values) => {
@@ -34,52 +33,53 @@ function Register() {
     
     setLoading(true);
     try {
-      const response = await axios.post('/api/users/register', {
+      const response = await axios.post('/api/users/login', {
         email,
         password
       });
 
       if (response.data.success) {
-        setRegisteredEmail(email);
-        setRegisterSuccess(true);
+        setUserEmail(email);
+        setLoginSuccess(true);
         message.success(response.data.message);
       }
     } catch (error) {
       if (error.response) {
-        message.error(error.response.data.message || '注册失败');
+        message.error(error.response.data.message || '登录失败');
       } else {
         message.error('网络错误，请稍后重试');
       }
-      console.error('注册失败:', error);
+      console.error('登录失败:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBackToLogin = () => {
-    navigate('/login');
+  const handleGoToRegister = () => {
+    navigate('/register');
   };
 
   const handleGoToHome = () => {
     navigate('/home');
   };
 
-  if (registerSuccess) {
+  if (loginSuccess) {
     return (
-      <div className="register-full-page">
-        <div className="register-content-wrapper">
+      <div className="login-full-page">
+        <div className="login-content-wrapper">
           <Card className="success-card-full" bordered={false}>
             <Result
               status="success"
-              title="恭喜您，注册成功！"
+              title="登录成功！"
               subTitle={
                 <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                  <Text>您的账户邮箱：<Text strong>{registeredEmail}</Text></Text>
+                  <Text>欢迎回来，<Text strong>{userEmail}</Text></Text>
                   <Text type="secondary">您现在可以开始使用社区活动室预约系统了</Text>
                 </Space>
               }
               extra={[
                 <Button type="primary" size="large" onClick={handleGoToHome} key="home">
+                  <HomeOutlined style={{ marginRight: '8px' }} />
                   进入系统
                 </Button>
               ]}
@@ -91,16 +91,16 @@ function Register() {
   }
 
   return (
-    <div className="register-full-page">
-      <div className="register-content-wrapper">
-        <Card className="register-card-full" bordered={false}>
-          <div className="register-title-section">
-            <Title level={2} className="register-title">
+    <div className="login-full-page">
+      <div className="login-content-wrapper">
+        <Card className="login-card-full" bordered={false}>
+          <div className="login-title-section">
+            <Title level={2} className="login-title">
               <UserOutlined style={{ marginRight: '12px' }} />
-              用户注册
+              用户登录
             </Title>
-            <Text type="secondary" className="register-subtitle">
-              创建账户，开始使用社区活动室预约系统
+            <Text type="secondary" className="login-subtitle">
+              登录账户，使用社区活动室预约系统
             </Text>
           </div>
 
@@ -109,7 +109,7 @@ function Register() {
             layout="vertical"
             onFinish={handleSubmit}
             size="large"
-            className="register-form"
+            className="login-form"
           >
             <Form.Item
               name="email"
@@ -128,38 +128,13 @@ function Register() {
 
             <Form.Item
               name="password"
-              label="设置密码"
+              label="密码"
               rules={[
-                { required: true, message: '请输入密码' },
-                { min: 6, message: '密码长度至少为6位' }
+                { required: true, message: '请输入密码' }
               ]}
-              validateTrigger="onBlur"
             >
               <Input.Password 
-                placeholder="请设置密码（至少6位）" 
-                prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="confirmPassword"
-              label="确认密码"
-              dependencies={['password']}
-              rules={[
-                { required: true, message: '请确认密码' },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    if (!value || getFieldValue('password') === value) {
-                      return Promise.resolve();
-                    }
-                    return Promise.reject(new Error('两次输入的密码不一致'));
-                  },
-                }),
-              ]}
-              validateTrigger="onBlur"
-            >
-              <Input.Password 
-                placeholder="请再次输入密码" 
+                placeholder="请输入密码" 
                 prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
               />
             </Form.Item>
@@ -172,17 +147,17 @@ function Register() {
                   loading={loading}
                   size="large"
                   block
-                  className="register-button-full"
+                  className="login-button-full"
                 >
-                  立即注册
+                  登录
                 </Button>
                 <Button 
-                  icon={<LoginOutlined />} 
-                  onClick={handleBackToLogin}
+                  icon={<UserAddOutlined />} 
+                  onClick={handleGoToRegister}
                   block
-                  className="back-login-button"
+                  className="register-nav-button"
                 >
-                  返回登录
+                  没有账户？立即注册
                 </Button>
               </Space>
             </Form.Item>
@@ -193,4 +168,4 @@ function Register() {
   );
 }
 
-export default Register;
+export default Login;
