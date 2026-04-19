@@ -305,51 +305,54 @@ function HomePage() {
                 </Link>
               </>
             ) : (
-              <Dropdown
-                menu={{
-                  items: [
-                    {
-                      key: 'bookings',
-                      icon: <CalendarOutlined />,
-                      label: (
-                        <Link to="/my-bookings">
-                          我的预约
-                        </Link>
-                      )
-                    },
-                    {
-                      key: 'profile',
-                      icon: <SettingOutlined />,
-                      label: (
-                        <Link to={`/profile/${user.id}`}>
-                          个人资料
-                        </Link>
-                      )
-                    },
-                    {
-                      type: 'divider'
-                    },
-                    {
-                      key: 'logout',
-                      icon: <LogoutOutlined />,
-                      label: '退出登录',
-                      onClick: handleLogout
-                    }
-                  ]
-                }}
-                placement="bottomRight"
-                trigger={['hover']}
-              >
-                <div className="user-dropdown-trigger">
-                  <Avatar 
-                    size={40} 
-                    src={user.avatar || generateDefaultAvatar(user.email)}
-                    icon={<UserOutlined />}
-                    className="user-avatar"
-                  />
-                  <span className="user-email">{user.email}</span>
-                </div>
-              </Dropdown>
+              <Space size="middle">
+                <Link to="/my-bookings">
+                  <Button 
+                    type="default" 
+                    size="large"
+                    icon={<CalendarOutlined />}
+                    className="nav-bookings-button"
+                  >
+                    我的预约
+                  </Button>
+                </Link>
+                <Dropdown
+                  menu={{
+                    items: [
+                      {
+                        key: 'profile',
+                        icon: <SettingOutlined />,
+                        label: (
+                          <Link to={`/profile/${user.id}`}>
+                            个人资料
+                          </Link>
+                        )
+                      },
+                      {
+                        type: 'divider'
+                      },
+                      {
+                        key: 'logout',
+                        icon: <LogoutOutlined />,
+                        label: '退出登录',
+                        onClick: handleLogout
+                      }
+                    ]
+                  }}
+                  placement="bottomRight"
+                  trigger={['hover']}
+                >
+                  <div className="user-dropdown-trigger">
+                    <Avatar 
+                      size={40} 
+                      src={user.avatar || generateDefaultAvatar(user.email)}
+                      icon={<UserOutlined />}
+                      className="user-avatar"
+                    />
+                    <span className="user-email">{user.email}</span>
+                  </div>
+                </Dropdown>
+              </Space>
             )}
           </div>
         </div>
