@@ -12,8 +12,6 @@ const pool = new Pool({
 const initDb = async () => {
   const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -24,12 +22,14 @@ const initDb = async () => {
       )
     `);
 
-    try {
+    const avatarColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'users' AND column_name = 'avatar'
+    `);
+    
+    if (avatarColumnCheck.rows.length === 0) {
       await client.query(`ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT ''`);
-    } catch (err) {
-      if (!err.message.includes('column "avatar" of relation "users" already exists')) {
-        console.error('添加avatar字段失败:', err);
-      }
+      console.log('已添加 avatar 字段到 users 表');
     }
 
     await client.query(`
@@ -79,10 +79,7 @@ const initDb = async () => {
       }
       console.log('初始化活动室数据完成');
     }
-
-    await client.query('COMMIT');
   } catch (error) {
-    await client.query('ROLLBACK');
     throw error;
   } finally {
     client.release();
