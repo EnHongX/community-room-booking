@@ -38,6 +38,7 @@ import dayjs from 'dayjs';
 import Register from './Register';
 import Login from './Login';
 import Profile from './Profile';
+import MyBookings from './MyBookings';
 
 const { Title, Text } = Typography;
 
@@ -307,6 +308,15 @@ function HomePage() {
               <Dropdown
                 menu={{
                   items: [
+                    {
+                      key: 'bookings',
+                      icon: <CalendarOutlined />,
+                      label: (
+                        <Link to="/my-bookings">
+                          我的预约
+                        </Link>
+                      )
+                    },
                     {
                       key: 'profile',
                       icon: <SettingOutlined />,
@@ -595,6 +605,7 @@ function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/home" element={<HomePage />} />
       <Route path="/profile/:userId" element={<Profile />} />
+      <Route path="/my-bookings" element={<MyBookings />} />
     </Routes>
   );
 }
