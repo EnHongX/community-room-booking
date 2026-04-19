@@ -53,7 +53,9 @@ const initDb = async () => {
         start_time TEXT NOT NULL,
         end_time TEXT NOT NULL,
         purpose TEXT,
+        status TEXT DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        cancelled_at TIMESTAMP,
         FOREIGN KEY (room_id) REFERENCES rooms(id),
         FOREIGN KEY (user_id) REFERENCES users(id)
       )
@@ -67,6 +69,26 @@ const initDb = async () => {
     if (userIdColumnCheck.rows.length === 0) {
       await client.query(`ALTER TABLE bookings ADD COLUMN user_id INTEGER REFERENCES users(id)`);
       console.log('已添加 user_id 字段到 bookings 表');
+    }
+
+    const statusColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'bookings' AND column_name = 'status'
+    `);
+    
+    if (statusColumnCheck.rows.length === 0) {
+      await client.query(`ALTER TABLE bookings ADD COLUMN status TEXT DEFAULT 'active'`);
+      console.log('已添加 status 字段到 bookings 表');
+    }
+
+    const cancelledAtColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'bookings' AND column_name = 'cancelled_at'
+    `);
+    
+    if (cancelledAtColumnCheck.rows.length === 0) {
+      await client.query(`ALTER TABLE bookings ADD COLUMN cancelled_at TIMESTAMP`);
+      console.log('已添加 cancelled_at 字段到 bookings 表');
     }
 
     await client.query(`

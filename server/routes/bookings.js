@@ -199,4 +199,106 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/my', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { status } = req.query;
+    
+    let sql = `
+      SELECT b.*, r.name as room_name 
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      WHERE b.user_id = ?
+    `;
+    const params = [userId];
+    
+    if (status) {
+      sql += ' AND b.status = ?';
+      params.push(status);
+    }
+    
+    sql += ' ORDER BY b.date DESC, b.start_time DESC';
+    
+    const bookings = await db.query(sql, params);
+    res.json({ success: true, data: bookings });
+  } catch (error) {
+    console.error('获取用户预约列表失败:', error);
+    res.status(500).json({ success: false, message: '获取预约列表失败' });
+  }
+});
+
+router.get('/:id', authMiddleware, async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const userId = req.user.id;
+    
+    const booking = await db.queryOne(`
+      SELECT b.*, r.name as room_name, r.description as room_description, r.capacity as room_capacity
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      WHERE b.id = ? AND b.user_id = ?
+    `, [bookingId, userId]);
+    
+    if (!booking) {
+      return res.status(404).json({ 
+        success: false, 
+        message: '预约不存在或无权访问' 
+      });
+    }
+    
+    res.json({ success: true, data: booking });
+  } catch (error) {
+    console.error('获取预约详情失败:', error);
+    res.status(500).json({ success: false, message: '获取预约详情失败' });
+  }
+});
+
+router.put('/:id/cancel', authMiddleware, async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const userId = req.user.id;
+    
+    const booking = await db.queryOne(`
+      SELECT * FROM bookings 
+      WHERE id = ? AND user_id = ?
+    `, [bookingId, userId]);
+    
+    if (!booking) {
+      return res.status(404).json({ 
+        success: false, 
+        message: '预约不存在或无权访问' 
+      });
+    }
+    
+    if (booking.status === 'cancelled') {
+      return res.status(400).json({ 
+        success: false, 
+        message: '该预约已被取消' 
+      });
+    }
+    
+    await db.run(`
+      UPDATE bookings 
+      SET status = 'cancelled', cancelled_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [bookingId]);
+    
+    const updatedBooking = await db.queryOne(`
+      SELECT b.*, r.name as room_name 
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      WHERE b.id = ?
+    `, [bookingId]);
+    
+    res.json({ 
+      success: true, 
+      message: '预约已取消',
+      data: updatedBooking
+    });
+  } catch (error) {
+    console.error('取消预约失败:', error);
+    res.status(500).json({ success: false, message: '取消预约失败' });
+  }
+});
+
 module.exports = router;
