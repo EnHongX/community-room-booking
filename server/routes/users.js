@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const bcrypt = require('bcrypt');
+const { createSession, deleteSession } = require('../redis');
+const { authMiddleware, extractSessionId } = require('../middleware/auth');
 
 const SALT_ROUNDS = 10;
 
@@ -53,17 +55,41 @@ router.post('/login', async (req, res) => {
     const userInfo = {
       id: user.id,
       email: user.email,
+      avatar: user.avatar,
       created_at: user.created_at
     };
+    
+    const sessionId = await createSession(userInfo);
     
     res.status(200).json({ 
       success: true, 
       message: '登录成功！',
-      data: userInfo
+      data: {
+        user: userInfo,
+        sessionId: sessionId
+      }
     });
   } catch (error) {
     console.error('用户登录失败:', error);
     res.status(500).json({ success: false, message: '登录失败，请稍后重试' });
+  }
+});
+
+router.post('/logout', async (req, res) => {
+  try {
+    const sessionId = extractSessionId(req);
+    
+    if (sessionId) {
+      await deleteSession(sessionId);
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: '已退出登录'
+    });
+  } catch (error) {
+    console.error('退出登录失败:', error);
+    res.status(500).json({ success: false, message: '退出登录失败，请稍后重试' });
   }
 });
 

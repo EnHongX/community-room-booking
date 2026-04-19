@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
+const { authMiddleware } = require('../middleware/auth');
 
 async function checkTimeConflict(roomId, date, startTime, endTime, excludeBookingId = null) {
   let sql = `
@@ -122,7 +123,7 @@ router.get('/check-conflict', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const { room_id, user_name, user_phone, date, start_time, end_time, purpose } = req.body;
     
@@ -173,10 +174,12 @@ router.post('/', async (req, res) => {
       });
     }
     
+    const userId = req.user.id;
+    
     const result = await db.run(`
-      INSERT INTO bookings (room_id, user_name, user_phone, date, start_time, end_time, purpose)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [room_id, user_name, user_phone, date, start_time, end_time, purpose || null]);
+      INSERT INTO bookings (room_id, user_id, user_name, user_phone, date, start_time, end_time, purpose)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [room_id, userId, user_name, user_phone, date, start_time, end_time, purpose || null]);
     
     const newBooking = await db.queryOne(`
       SELECT b.*, r.name as room_name 

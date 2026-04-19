@@ -46,6 +46,7 @@ const initDb = async () => {
       CREATE TABLE IF NOT EXISTS bookings (
         id SERIAL PRIMARY KEY,
         room_id INTEGER NOT NULL,
+        user_id INTEGER,
         user_name TEXT NOT NULL,
         user_phone TEXT NOT NULL,
         date TEXT NOT NULL,
@@ -53,9 +54,20 @@ const initDb = async () => {
         end_time TEXT NOT NULL,
         purpose TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (room_id) REFERENCES rooms(id)
+        FOREIGN KEY (room_id) REFERENCES rooms(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
       )
     `);
+
+    const userIdColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'bookings' AND column_name = 'user_id'
+    `);
+    
+    if (userIdColumnCheck.rows.length === 0) {
+      await client.query(`ALTER TABLE bookings ADD COLUMN user_id INTEGER REFERENCES users(id)`);
+      console.log('已添加 user_id 字段到 bookings 表');
+    }
 
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_bookings_room_date ON bookings(room_id, date)
