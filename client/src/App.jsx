@@ -39,6 +39,8 @@ import Register from './Register';
 import Login from './Login';
 import Profile from './Profile';
 import MyBookings from './MyBookings';
+import AdminLogin from './AdminLogin';
+import AdminDashboard from './AdminDashboard';
 
 const { Title, Text } = Typography;
 
@@ -609,6 +611,8 @@ function App() {
       <Route path="/home" element={<HomePage />} />
       <Route path="/profile/:userId" element={<Profile />} />
       <Route path="/my-bookings" element={<MyBookings />} />
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/admin/dashboard" element={<AdminDashboard />} />
     </Routes>
   );
 }

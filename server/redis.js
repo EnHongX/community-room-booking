@@ -29,6 +29,7 @@ const createSession = async (user) => {
   const sessionData = {
     userId: user.id,
     email: user.email,
+    isAdmin: user.isAdmin || false,
     createdAt: Date.now()
   };
   
