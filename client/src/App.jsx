@@ -41,6 +41,35 @@ import Profile from './Profile';
 
 const { Title, Text } = Typography;
 
+axios.interceptors.request.use(
+  (config) => {
+    const sessionId = localStorage.getItem('sessionId');
+    if (sessionId) {
+      config.headers.Authorization = `Bearer ${sessionId}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+axios.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      const code = error.response.data?.code;
+      if (code === 'UNAUTHORIZED' || code === 'SESSION_EXPIRED') {
+        localStorage.removeItem('user');
+        localStorage.removeItem('sessionId');
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 const generateDefaultAvatar = (email) => {
   const colors = [
     '#667eea', '#764ba2', '#f093fb', '#f5576c',
@@ -186,10 +215,19 @@ function HomePage() {
         setDateBookings([]);
       }
     } catch (error) {
-      if (error.response?.status === 409) {
+      if (error.response?.status === 401) {
+        const code = error.response.data?.code;
+        if (code === 'UNAUTHORIZED') {
+          message.error('请先登录后再预约');
+        } else if (code === 'SESSION_EXPIRED') {
+          message.error('登录已过期，请重新登录');
+        }
+        setBookingModalVisible(false);
+        navigate('/login');
+      } else if (error.response?.status === 409) {
         message.error('时间冲突，该时段已被预约，请选择其他时间');
       } else {
-        message.error('预约失败，请稍后重试');
+        message.error(error.response?.data?.message || '预约失败，请稍后重试');
       }
       console.error('预约失败:', error);
     } finally {
@@ -201,11 +239,18 @@ function HomePage() {
     return current && current < dayjs().startOf('day');
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    setUser(null);
-    message.success('已退出登录');
-    navigate('/home');
+  const handleLogout = async () => {
+    try {
+      await axios.post('/api/users/logout');
+    } catch (error) {
+      console.error('退出登录失败:', error);
+    } finally {
+      localStorage.removeItem('user');
+      localStorage.removeItem('sessionId');
+      setUser(null);
+      message.success('已退出登录');
+      navigate('/home');
+    }
   };
 
   const getRoomIcon = (name) => {

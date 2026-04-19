@@ -39,8 +39,9 @@ function Login() {
       });
 
       if (response.data.success) {
-        const userData = response.data.data;
-        localStorage.setItem('user', JSON.stringify(userData));
+        const { user, sessionId } = response.data.data;
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('sessionId', sessionId);
         setUserEmail(email);
         setLoginSuccess(true);
         message.success(response.data.message);

@@ -5,6 +5,7 @@ const roomsRouter = require('./routes/rooms');
 const bookingsRouter = require('./routes/bookings');
 const usersRouter = require('./routes/users');
 const db = require('./database');
+const redis = require('./redis');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -31,12 +32,15 @@ async function startServer() {
     await db.initDb();
     console.log('数据库初始化完成');
     
+    await redis.checkRedisConnection();
+    
     app.listen(PORT, () => {
       console.log(`社区活动室预约系统后端服务已启动`);
       console.log(`服务地址: http://localhost:${PORT}`);
       console.log(`API 文档: `);
       console.log(`  - GET  /api/health          - 健康检查`);
       console.log(`  - POST /api/users/login     - 用户登录`);
+      console.log(`  - POST /api/users/logout    - 用户退出登录`);
       console.log(`  - POST /api/users/register  - 用户注册`);
       console.log(`  - GET  /api/rooms           - 获取活动室列表`);
       console.log(`  - GET  /api/rooms/:id       - 获取活动室详情`);
