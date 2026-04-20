@@ -28,35 +28,6 @@ import axios from 'axios';
 
 const { Title, Text } = Typography;
 
-axios.interceptors.request.use(
-  (config) => {
-    const adminSessionId = localStorage.getItem('adminSessionId');
-    if (adminSessionId) {
-      config.headers.Authorization = `Bearer ${adminSessionId}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-axios.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    if (error.response?.status === 401) {
-      const code = error.response.data?.code;
-      if (code === 'UNAUTHORIZED' || code === 'SESSION_EXPIRED') {
-        localStorage.removeItem('admin');
-        localStorage.removeItem('adminSessionId');
-      }
-    }
-    return Promise.reject(error);
-  }
-);
-
 function AdminRooms() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -65,16 +36,6 @@ function AdminRooms() {
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
   const navigate = useNavigate();
-
-  const checkAdminAuth = useCallback(async () => {
-    const storedAdmin = localStorage.getItem('admin');
-    const adminSessionId = localStorage.getItem('adminSessionId');
-    
-    if (!storedAdmin || !adminSessionId) {
-      navigate('/admin/login');
-      return;
-    }
-  }, [navigate]);
 
   const fetchRooms = useCallback(async () => {
     setLoading(true);
@@ -99,9 +60,8 @@ function AdminRooms() {
   }, [navigate]);
 
   useEffect(() => {
-    checkAdminAuth();
     fetchRooms();
-  }, [checkAdminAuth, fetchRooms]);
+  }, [fetchRooms]);
 
   const handleAddRoom = () => {
     setEditingRoom(null);

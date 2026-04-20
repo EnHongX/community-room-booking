@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
   Layout,
   Menu,
@@ -61,7 +61,37 @@ function AdminDashboard() {
   const [admin, setAdmin] = useState(null);
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
+  const [selectedKey, setSelectedKey] = useState('dashboard');
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const getSelectedKey = useCallback(() => {
+    const path = location.pathname;
+    if (path === '/admin/dashboard' || path === '/admin') {
+      return 'dashboard';
+    } else if (path === '/admin/rooms') {
+      return 'rooms';
+    }
+    return 'dashboard';
+  }, [location.pathname]);
+
+  const getPageTitle = useCallback(() => {
+    const key = getSelectedKey();
+    switch (key) {
+      case 'dashboard':
+        return '控制台';
+      case 'rooms':
+        return '活动室管理';
+      case 'bookings':
+        return '预约管理';
+      case 'users':
+        return '用户管理';
+      case 'settings':
+        return '系统设置';
+      default:
+        return '控制台';
+    }
+  }, [getSelectedKey]);
 
   const checkAdminAuth = useCallback(async () => {
     const storedAdmin = localStorage.getItem('admin');
@@ -86,6 +116,10 @@ function AdminDashboard() {
   useEffect(() => {
     checkAdminAuth();
   }, [checkAdminAuth]);
+
+  useEffect(() => {
+    setSelectedKey(getSelectedKey());
+  }, [getSelectedKey]);
 
   const handleLogout = async () => {
     try {
@@ -206,7 +240,7 @@ function AdminDashboard() {
         <Menu
           theme="dark"
           mode="inline"
-          defaultSelectedKeys={['dashboard']}
+          selectedKeys={[selectedKey]}
           items={menuItems}
           style={{ borderRight: 0 }}
           onClick={handleMenuClick}
@@ -223,7 +257,7 @@ function AdminDashboard() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Title level={4} style={{ margin: 0, color: '#333' }}>
-              控制台
+              {getPageTitle()}
             </Title>
           </div>
           <Dropdown
@@ -252,69 +286,7 @@ function AdminDashboard() {
           </Dropdown>
         </Header>
         <Content style={{ margin: '24px', background: '#f0f2f5' }}>
-          <div style={{ padding: '24px', minHeight: '360px' }}>
-            <Row gutter={[16, 16]}>
-              <Col xs={24} sm={12} lg={6}>
-                <Card>
-                  <Statistic
-                    title="总预约数"
-                    value={0}
-                    prefix={<CalendarOutlined />}
-                    valueStyle={{ color: '#667eea' }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={12} lg={6}>
-                <Card>
-                  <Statistic
-                    title="活动室数量"
-                    value={0}
-                    prefix={<HomeOutlined />}
-                    valueStyle={{ color: '#52c41a' }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={12} lg={6}>
-                <Card>
-                  <Statistic
-                    title="注册用户"
-                    value={0}
-                    prefix={<TeamOutlined />}
-                    valueStyle={{ color: '#fa8c16' }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={12} lg={6}>
-                <Card>
-                  <Statistic
-                    title="今日预约"
-                    value={0}
-                    prefix={<CalendarOutlined />}
-                    valueStyle={{ color: '#1890ff' }}
-                  />
-                </Card>
-              </Col>
-            </Row>
-
-            <Card style={{ marginTop: '24px' }}>
-              <Title level={4} style={{ marginBottom: '16px' }}>
-                欢迎使用管理后台
-              </Title>
-              <Text type="secondary">
-                这是社区活动室预约系统的管理后台。您可以在这里管理活动室、预约和用户。
-              </Text>
-              <div style={{ marginTop: '24px' }}>
-                <Space>
-                  <Button type="primary" icon={<CalendarOutlined />}>
-                    查看所有预约
-                  </Button>
-                  <Button icon={<HomeOutlined />}>
-                    管理活动室
-                  </Button>
-                </Space>
-              </div>
-            </Card>
-          </div>
+          <Outlet />
         </Content>
       </Layout>
     </Layout>
