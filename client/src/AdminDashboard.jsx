@@ -69,6 +69,8 @@ function AdminDashboard() {
     const path = location.pathname;
     if (path === '/admin/dashboard' || path === '/admin') {
       return 'dashboard';
+    } else if (path === '/admin/bookings') {
+      return 'bookings';
     } else if (path === '/admin/rooms') {
       return 'rooms';
     }
@@ -163,6 +165,9 @@ function AdminDashboard() {
     switch (key) {
       case 'dashboard':
         navigate('/admin/dashboard');
+        break;
+      case 'bookings':
+        navigate('/admin/bookings');
         break;
       case 'rooms':
         navigate('/admin/rooms');

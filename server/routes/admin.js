@@ -221,4 +221,186 @@ router.delete('/rooms/:id', adminAuthMiddleware, async (req, res) => {
   }
 });
 
+router.get('/bookings', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { status, start_date, end_date, page = 1, page_size = 20 } = req.query;
+    
+    let sql = `
+      SELECT b.*, r.name as room_name, u.email as user_email
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      LEFT JOIN users u ON b.user_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+    const countParams = [];
+    
+    if (status) {
+      sql += ' AND b.status = ?';
+      params.push(status);
+      countParams.push(status);
+    }
+    
+    if (start_date) {
+      sql += ' AND b.date >= ?';
+      params.push(start_date);
+      countParams.push(start_date);
+    }
+    
+    if (end_date) {
+      sql += ' AND b.date <= ?';
+      params.push(end_date);
+      countParams.push(end_date);
+    }
+    
+    const countSql = `
+      SELECT COUNT(*) as total 
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      LEFT JOIN users u ON b.user_id = u.id
+      WHERE 1=1
+      ${status ? ' AND b.status = ?' : ''}
+      ${start_date ? ' AND b.date >= ?' : ''}
+      ${end_date ? ' AND b.date <= ?' : ''}
+    `;
+    
+    const countResult = await db.queryOne(countSql, countParams);
+    const total = parseInt(countResult.total);
+    
+    sql += ' ORDER BY b.created_at DESC';
+    
+    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    sql += ' LIMIT ? OFFSET ?';
+    params.push(parseInt(page_size), offset);
+    
+    const bookings = await db.query(sql, params);
+    
+    res.json({
+      success: true,
+      data: {
+        bookings,
+        pagination: {
+          page: parseInt(page),
+          page_size: parseInt(page_size),
+          total,
+          total_pages: Math.ceil(total / parseInt(page_size))
+        }
+      }
+    });
+  } catch (error) {
+    console.error('获取预约列表失败:', error);
+    res.status(500).json({ success: false, message: '获取预约列表失败' });
+  }
+});
+
+router.get('/bookings/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const booking = await db.queryOne(`
+      SELECT b.*, r.name as room_name, r.description as room_description, r.capacity as room_capacity, u.email as user_email
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      LEFT JOIN users u ON b.user_id = u.id
+      WHERE b.id = ?
+    `, [id]);
+    
+    if (!booking) {
+      return res.status(404).json({ success: false, message: '预约不存在' });
+    }
+    
+    res.json({ success: true, data: booking });
+  } catch (error) {
+    console.error('获取预约详情失败:', error);
+    res.status(500).json({ success: false, message: '获取预约详情失败' });
+  }
+});
+
+router.put('/bookings/:id/approve', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user.id;
+    
+    const booking = await db.queryOne('SELECT * FROM bookings WHERE id = ?', [id]);
+    
+    if (!booking) {
+      return res.status(404).json({ success: false, message: '预约不存在' });
+    }
+    
+    if (booking.status !== 'pending') {
+      return res.status(400).json({ 
+        success: false, 
+        message: '只有待处理状态的预约可以审核' 
+      });
+    }
+    
+    await db.run(`
+      UPDATE bookings 
+      SET status = 'approved', reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ?
+      WHERE id = ?
+    `, [adminId, id]);
+    
+    const updatedBooking = await db.queryOne(`
+      SELECT b.*, r.name as room_name, u.email as user_email
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      LEFT JOIN users u ON b.user_id = u.id
+      WHERE b.id = ?
+    `, [id]);
+    
+    res.json({
+      success: true,
+      message: '预约已通过',
+      data: updatedBooking
+    });
+  } catch (error) {
+    console.error('通过预约失败:', error);
+    res.status(500).json({ success: false, message: '通过预约失败，请稍后重试' });
+  }
+});
+
+router.put('/bookings/:id/reject', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reject_reason } = req.body;
+    const adminId = req.user.id;
+    
+    const booking = await db.queryOne('SELECT * FROM bookings WHERE id = ?', [id]);
+    
+    if (!booking) {
+      return res.status(404).json({ success: false, message: '预约不存在' });
+    }
+    
+    if (booking.status !== 'pending') {
+      return res.status(400).json({ 
+        success: false, 
+        message: '只有待处理状态的预约可以审核' 
+      });
+    }
+    
+    await db.run(`
+      UPDATE bookings 
+      SET status = 'rejected', reject_reason = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ?
+      WHERE id = ?
+    `, [reject_reason || null, adminId, id]);
+    
+    const updatedBooking = await db.queryOne(`
+      SELECT b.*, r.name as room_name, u.email as user_email
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      LEFT JOIN users u ON b.user_id = u.id
+      WHERE b.id = ?
+    `, [id]);
+    
+    res.json({
+      success: true,
+      message: '预约已驳回',
+      data: updatedBooking
+    });
+  } catch (error) {
+    console.error('驳回预约失败:', error);
+    res.status(500).json({ success: false, message: '驳回预约失败，请稍后重试' });
+  }
+});
+
 module.exports = router;

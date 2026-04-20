@@ -91,6 +91,36 @@ const initDb = async () => {
       console.log('已添加 cancelled_at 字段到 bookings 表');
     }
 
+    const rejectReasonColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'bookings' AND column_name = 'reject_reason'
+    `);
+    
+    if (rejectReasonColumnCheck.rows.length === 0) {
+      await client.query(`ALTER TABLE bookings ADD COLUMN reject_reason TEXT`);
+      console.log('已添加 reject_reason 字段到 bookings 表');
+    }
+
+    const reviewedAtColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'bookings' AND column_name = 'reviewed_at'
+    `);
+    
+    if (reviewedAtColumnCheck.rows.length === 0) {
+      await client.query(`ALTER TABLE bookings ADD COLUMN reviewed_at TIMESTAMP`);
+      console.log('已添加 reviewed_at 字段到 bookings 表');
+    }
+
+    const reviewedByColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'bookings' AND column_name = 'reviewed_by'
+    `);
+    
+    if (reviewedByColumnCheck.rows.length === 0) {
+      await client.query(`ALTER TABLE bookings ADD COLUMN reviewed_by INTEGER REFERENCES users(id)`);
+      console.log('已添加 reviewed_by 字段到 bookings 表');
+    }
+
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_bookings_room_date ON bookings(room_id, date)
     `);
