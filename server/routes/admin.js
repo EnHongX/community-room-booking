@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { createSession, deleteSession } = require('../redis');
-const { extractSessionId } = require('../middleware/auth');
+const { extractSessionId, adminAuthMiddleware } = require('../middleware/auth');
+const db = require('../database');
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
@@ -87,6 +88,136 @@ router.get('/me', (req, res) => {
   } catch (error) {
     console.error('获取管理员信息失败:', error);
     res.status(500).json({ success: false, message: '获取信息失败，请稍后重试' });
+  }
+});
+
+router.get('/rooms', adminAuthMiddleware, async (req, res) => {
+  try {
+    const rooms = await db.query('SELECT * FROM rooms ORDER BY id');
+    res.json({ success: true, data: rooms });
+  } catch (error) {
+    console.error('获取活动室列表失败:', error);
+    res.status(500).json({ success: false, message: '获取活动室列表失败' });
+  }
+});
+
+router.get('/rooms/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const room = await db.queryOne('SELECT * FROM rooms WHERE id = ?', [id]);
+    
+    if (!room) {
+      return res.status(404).json({ success: false, message: '活动室不存在' });
+    }
+    
+    res.json({ success: true, data: room });
+  } catch (error) {
+    console.error('获取活动室详情失败:', error);
+    res.status(500).json({ success: false, message: '获取活动室详情失败' });
+  }
+});
+
+router.post('/rooms', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { name, description, capacity } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ success: false, message: '活动室名称为必填项' });
+    }
+    
+    if (!capacity || capacity <= 0) {
+      return res.status(400).json({ success: false, message: '容纳人数必须大于0' });
+    }
+    
+    const result = await db.run(
+      'INSERT INTO rooms (name, description, capacity) VALUES (?, ?, ?)',
+      [name, description || '', capacity]
+    );
+    
+    res.status(201).json({
+      success: true,
+      message: '活动室创建成功',
+      data: {
+        id: result.lastID,
+        name,
+        description,
+        capacity
+      }
+    });
+  } catch (error) {
+    console.error('创建活动室失败:', error);
+    res.status(500).json({ success: false, message: '创建活动室失败，请稍后重试' });
+  }
+});
+
+router.put('/rooms/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, capacity } = req.body;
+    
+    const existingRoom = await db.queryOne('SELECT * FROM rooms WHERE id = ?', [id]);
+    if (!existingRoom) {
+      return res.status(404).json({ success: false, message: '活动室不存在' });
+    }
+    
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (description !== undefined) updates.description = description;
+    if (capacity !== undefined) {
+      if (capacity <= 0) {
+        return res.status(400).json({ success: false, message: '容纳人数必须大于0' });
+      }
+      updates.capacity = capacity;
+    }
+    
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, message: '没有需要更新的字段' });
+    }
+    
+    const setClauses = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+    const values = [...Object.values(updates), id];
+    
+    await db.run(`UPDATE rooms SET ${setClauses} WHERE id = ?`, values);
+    
+    const updatedRoom = await db.queryOne('SELECT * FROM rooms WHERE id = ?', [id]);
+    
+    res.json({
+      success: true,
+      message: '活动室更新成功',
+      data: updatedRoom
+    });
+  } catch (error) {
+    console.error('更新活动室失败:', error);
+    res.status(500).json({ success: false, message: '更新活动室失败，请稍后重试' });
+  }
+});
+
+router.delete('/rooms/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const existingRoom = await db.queryOne('SELECT * FROM rooms WHERE id = ?', [id]);
+    if (!existingRoom) {
+      return res.status(404).json({ success: false, message: '活动室不存在' });
+    }
+    
+    const bookings = await db.query('SELECT * FROM bookings WHERE room_id = ? AND status = ?', [id, 'active']);
+    if (bookings.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '该活动室存在未完成的预约，无法删除' 
+      });
+    }
+    
+    await db.run('DELETE FROM rooms WHERE id = ?', [id]);
+    
+    res.json({
+      success: true,
+      message: '活动室删除成功'
+    });
+  } catch (error) {
+    console.error('删除活动室失败:', error);
+    res.status(500).json({ success: false, message: '删除活动室失败，请稍后重试' });
   }
 });
 

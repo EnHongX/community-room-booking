@@ -125,6 +125,20 @@ function AdminDashboard() {
     ]
   };
 
+  const handleMenuClick = ({ key }) => {
+    switch (key) {
+      case 'dashboard':
+        navigate('/admin/dashboard');
+        break;
+      case 'rooms':
+        navigate('/admin/rooms');
+        break;
+      default:
+        message.info('该功能正在开发中');
+        break;
+    }
+  };
+
   const menuItems = [
     {
       key: 'dashboard',
@@ -195,6 +209,7 @@ function AdminDashboard() {
           defaultSelectedKeys={['dashboard']}
           items={menuItems}
           style={{ borderRight: 0 }}
+          onClick={handleMenuClick}
         />
       </Sider>
       <Layout>

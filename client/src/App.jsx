@@ -41,6 +41,7 @@ import Profile from './Profile';
 import MyBookings from './MyBookings';
 import AdminLogin from './AdminLogin';
 import AdminDashboard from './AdminDashboard';
+import AdminRooms from './AdminRooms';
 
 const { Title, Text } = Typography;
 
@@ -613,6 +614,7 @@ function App() {
       <Route path="/my-bookings" element={<MyBookings />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
+      <Route path="/admin/rooms" element={<AdminRooms />} />
     </Routes>
   );
 }
