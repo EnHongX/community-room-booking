@@ -50,14 +50,15 @@ const generateDefaultAvatar = (email) => {
 };
 
 const getStatusTag = (status) => {
-  switch (status) {
-    case 'active':
-      return <Tag icon={<CheckCircleOutlined />} color="success">已预约</Tag>;
-    case 'cancelled':
-      return <Tag icon={<CloseCircleOutlined />} color="default">已取消</Tag>;
-    default:
-      return <Tag color="default">{status}</Tag>;
-  }
+  const statusMap = {
+    pending: { color: 'orange', text: '待处理', icon: <ClockCircleOutlined /> },
+    approved: { color: 'green', text: '已通过', icon: <CheckCircleOutlined /> },
+    rejected: { color: 'red', text: '已驳回', icon: <CloseCircleOutlined /> },
+    active: { color: 'blue', text: '进行中', icon: <CheckCircleOutlined /> },
+    cancelled: { color: 'default', text: '已取消', icon: <CloseCircleOutlined /> }
+  };
+  const info = statusMap[status] || { color: 'default', text: status, icon: <InfoCircleOutlined /> };
+  return <Tag icon={info.icon} color={info.color}>{info.text}</Tag>;
 };
 
 const getRoomIcon = (name) => {
@@ -188,8 +189,20 @@ function MyBookings() {
       label: '全部预约',
     },
     {
+      key: 'pending',
+      label: '待处理',
+    },
+    {
+      key: 'approved',
+      label: '已通过',
+    },
+    {
+      key: 'rejected',
+      label: '已驳回',
+    },
+    {
       key: 'active',
-      label: '已预约',
+      label: '进行中',
     },
     {
       key: 'cancelled',
@@ -320,9 +333,15 @@ function MyBookings() {
                   description={
                     activeTab === 'all' 
                       ? '暂无预约记录' 
-                      : activeTab === 'active' 
-                        ? '暂无有效的预约' 
-                        : '暂无已取消的预约'
+                      : activeTab === 'pending' 
+                        ? '暂无待处理的预约' 
+                        : activeTab === 'approved' 
+                          ? '暂无已通过的预约' 
+                          : activeTab === 'rejected' 
+                            ? '暂无已驳回的预约' 
+                            : activeTab === 'active' 
+                              ? '暂无进行中的预约' 
+                              : '暂无已取消的预约'
                   }
                   style={{ marginTop: '60px' }}
                 />
@@ -437,6 +456,16 @@ function MyBookings() {
               <Descriptions.Item label="创建时间">
                 {formatDateTime(selectedBooking.created_at)}
               </Descriptions.Item>
+              {selectedBooking.reviewed_at && (
+                <Descriptions.Item label="审核时间">
+                  {formatDateTime(selectedBooking.reviewed_at)}
+                </Descriptions.Item>
+              )}
+              {selectedBooking.reject_reason && (
+                <Descriptions.Item label="驳回原因">
+                  <Text type="danger">{selectedBooking.reject_reason}</Text>
+                </Descriptions.Item>
+              )}
               {selectedBooking.cancelled_at && (
                 <Descriptions.Item label="取消时间">
                   {formatDateTime(selectedBooking.cancelled_at)}
