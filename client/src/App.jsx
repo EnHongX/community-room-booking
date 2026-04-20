@@ -47,6 +47,12 @@ import AdminBookings from './AdminBookings';
 
 const { Title, Text } = Typography;
 
+const STATUS_MAP = {
+  normal: { label: '正常开放', color: 'success', icon: <CheckCircleOutlined /> },
+  maintenance: { label: '维护中', color: 'warning', icon: <WarningOutlined /> },
+  suspended: { label: '暂停开放', color: 'error', icon: <CloseCircleOutlined /> }
+};
+
 axios.interceptors.request.use(
   (config) => {
     const sessionId = localStorage.getItem('sessionId');
@@ -128,7 +134,38 @@ function HomePage() {
     try {
       const response = await axios.get('/api/rooms');
       if (response.data.success) {
-        setRooms(response.data.data);
+        const roomsWithStatus = await Promise.all(
+          response.data.data.map(async (room) => {
+            try {
+              const statusResponse = await axios.get(`/api/rooms/${room.id}/maintenance`);
+              const maintenances = statusResponse.data?.data || [];
+              
+              const now = dayjs();
+              const activeMaintenance = maintenances.find(m => {
+                if (m.status === 'normal') return false;
+                const start = dayjs(`${m.start_date} ${m.start_time}`);
+                const end = dayjs(`${m.end_date} ${m.end_time}`);
+                return now.isAfter(start) && now.isBefore(end);
+              });
+              
+              const upcomingMaintenance = maintenances.find(m => {
+                if (m.status === 'normal') return false;
+                const start = dayjs(`${m.start_date} ${m.start_time}`);
+                return now.isBefore(start);
+              });
+              
+              return {
+                ...room,
+                currentStatus: activeMaintenance ? activeMaintenance.status : 'normal',
+                activeMaintenance,
+                upcomingMaintenance
+              };
+            } catch {
+              return { ...room, currentStatus: 'normal' };
+            }
+          })
+        );
+        setRooms(roomsWithStatus);
       }
     } catch (error) {
       message.error('获取活动室列表失败');
@@ -198,7 +235,13 @@ function HomePage() {
     const conflictResult = await checkTimeConflict(values);
     
     if (conflictResult.hasConflict) {
-      message.error('时间冲突，该时段已被预约，请选择其他时间');
+      if (conflictResult.conflictType === 'maintenance') {
+        message.error(conflictResult.conflictingMaintenance?.status === 'maintenance'
+          ? '该时段活动室正在维护中，无法预约'
+          : '该时段活动室暂停开放，无法预约');
+      } else {
+        message.error('时间冲突，该时段已被预约，请选择其他时间');
+      }
       return;
     }
 
@@ -231,7 +274,12 @@ function HomePage() {
         setBookingModalVisible(false);
         navigate('/login');
       } else if (error.response?.status === 409) {
-        message.error('时间冲突，该时段已被预约，请选择其他时间');
+        const errorData = error.response.data;
+        if (errorData.data?.conflictType === 'maintenance' || errorData.data?.conflictingMaintenance) {
+          message.error(errorData.message || '该时段活动室无法预约');
+        } else {
+          message.error('时间冲突，该时段已被预约，请选择其他时间');
+        }
       } else {
         message.error(error.response?.data?.message || '预约失败，请稍后重试');
       }
@@ -374,29 +422,48 @@ function HomePage() {
 
       <div className="content-area">
         <Row gutter={[16, 16]}>
-          {rooms.map((room) => (
-            <Col xs={24} sm={12} lg={8} key={room.id}>
-              <Card
-                className="room-card"
-                hoverable
-                onClick={() => handleRoomClick(room)}
-                styles={{ body: { padding: '20px' } }}
-              >
-                <div style={{ marginBottom: '12px' }}>
-                  <span style={{ fontSize: '48px' }}>{getRoomIcon(room.name)}</span>
-                </div>
-                <Title level={4} style={{ marginBottom: '8px' }}>{room.name}</Title>
-                <Text type="secondary" style={{ display: 'block', marginBottom: '12px' }}>
-                  {room.description}
-                </Text>
-                <Space>
-                  <Tag icon={<TeamOutlined />} color="blue">
-                    容纳 {room.capacity} 人
-                  </Tag>
-                </Space>
-              </Card>
-            </Col>
-          ))}
+          {rooms.map((room) => {
+            const statusConfig = STATUS_MAP[room.currentStatus] || STATUS_MAP.normal;
+            const isUnavailable = room.currentStatus !== 'normal';
+            
+            return (
+              <Col xs={24} sm={12} lg={8} key={room.id}>
+                <Card
+                  className={`room-card ${isUnavailable ? 'room-card-disabled' : ''}`}
+                  hoverable={!isUnavailable}
+                  onClick={() => !isUnavailable && handleRoomClick(room)}
+                  styles={{ body: { padding: '20px' } }}
+                >
+                  <div style={{ marginBottom: '12px' }}>
+                    <span style={{ fontSize: '48px', opacity: isUnavailable ? 0.5 : 1 }}>{getRoomIcon(room.name)}</span>
+                  </div>
+                  <Title level={4} style={{ marginBottom: '8px', opacity: isUnavailable ? 0.5 : 1 }}>{room.name}</Title>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: '12px', opacity: isUnavailable ? 0.5 : 1 }}>
+                    {room.description}
+                  </Text>
+                  <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                    <Tag icon={<TeamOutlined />} color="blue">
+                      容纳 {room.capacity} 人
+                    </Tag>
+                    <Tag icon={statusConfig.icon} color={statusConfig.color}>
+                      {statusConfig.label}
+                    </Tag>
+                    {room.activeMaintenance && (
+                      <Text type="danger" small>
+                        <WarningOutlined /> {room.activeMaintenance.start_date} {room.activeMaintenance.start_time} 至 {room.activeMaintenance.end_date} {room.activeMaintenance.end_time}
+                        {room.activeMaintenance.reason && ` (${room.activeMaintenance.reason})`}
+                      </Text>
+                    )}
+                    {room.upcomingMaintenance && !room.activeMaintenance && (
+                        <Text type="warning" small>
+                          <ClockCircleOutlined /> 即将{STATUS_MAP[room.upcomingMaintenance.status]?.label}: {room.upcomingMaintenance.start_date} {room.upcomingMaintenance.start_time} 至 {room.upcomingMaintenance.end_date} {room.upcomingMaintenance.end_time}
+                        </Text>
+                    )}
+                  </Space>
+                </Card>
+              </Col>
+            );
+          })}
         </Row>
       </div>
 

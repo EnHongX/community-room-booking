@@ -403,4 +403,374 @@ router.put('/bookings/:id/reject', adminAuthMiddleware, async (req, res) => {
   }
 });
 
+router.get('/rooms/:id/maintenance', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const room = await db.queryOne('SELECT * FROM rooms WHERE id = ?', [id]);
+    if (!room) {
+      return res.status(404).json({ success: false, message: '活动室不存在' });
+    }
+    
+    const maintenances = await db.query(`
+      SELECT * FROM room_maintenance 
+      WHERE room_id = ? 
+      ORDER BY created_at DESC
+    `, [id]);
+    
+    res.json({ success: true, data: maintenances });
+  } catch (error) {
+    console.error('获取活动室维护状态失败:', error);
+    res.status(500).json({ success: false, message: '获取维护状态失败' });
+  }
+});
+
+async function checkMaintenanceConflict(roomId, startDate, startTime, endDate, endTime, excludeMaintenanceId = null) {
+  let sql = `
+    SELECT * FROM room_maintenance 
+    WHERE room_id = ? 
+      AND status != 'normal'
+      AND (
+        (start_date < ? AND end_date > ?)
+        OR (start_date = ? AND start_time < ?)
+        OR (end_date = ? AND end_time > ?)
+        OR (start_date >= ? AND start_date <= ?)
+        OR (end_date >= ? AND end_date <= ?)
+      )
+  `;
+  
+  const params = [
+    roomId, 
+    endDate, startDate,
+    endDate, endTime,
+    startDate, startTime,
+    startDate, endDate,
+    startDate, endDate
+  ];
+  
+  if (excludeMaintenanceId) {
+    sql += ' AND id != ?';
+    params.push(excludeMaintenanceId);
+  }
+  
+  const maintenances = await db.query(sql, params);
+  return maintenances;
+}
+
+async function cancelBookingsInMaintenance(roomId, startDate, startTime, endDate, endTime, adminId, reason) {
+  const bookingsToCancel = await db.query(`
+    SELECT * FROM bookings 
+    WHERE room_id = ? 
+      AND status IN ('pending', 'approved', 'active')
+      AND (
+        (date < ? AND date > ?)
+        OR (date = ? AND start_time < ?)
+        OR (date = ? AND end_time > ?)
+        OR (date >= ? AND date <= ?)
+      )
+  `, [
+    roomId,
+    endDate, startDate,
+    endDate, endTime,
+    startDate, startTime,
+    startDate, endDate
+  ]);
+  
+  const cancelledBookings = [];
+  
+  for (const booking of bookingsToCancel) {
+    const bookingStart = booking.date + ' ' + booking.start_time;
+    const bookingEnd = booking.date + ' ' + booking.end_time;
+    const maintStart = startDate + ' ' + startTime;
+    const maintEnd = endDate + ' ' + endTime;
+    
+    if (bookingStart < maintEnd && bookingEnd > maintStart) {
+      await db.run(`
+        UPDATE bookings 
+        SET status = 'cancelled', 
+            cancelled_at = CURRENT_TIMESTAMP, 
+            reject_reason = ?
+        WHERE id = ?
+      `, [reason || '活动室维护/暂停开放，预约已取消', booking.id]);
+      
+      const updatedBooking = await db.queryOne(`
+        SELECT b.*, r.name as room_name
+        FROM bookings b
+        JOIN rooms r ON b.room_id = r.id
+        WHERE b.id = ?
+      `, [booking.id]);
+      
+      cancelledBookings.push(updatedBooking);
+    }
+  }
+  
+  return cancelledBookings;
+}
+
+router.post('/rooms/:id/maintenance', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, start_date, start_time, end_date, end_time, reason } = req.body;
+    const adminId = req.user.id;
+    
+    const room = await db.queryOne('SELECT * FROM rooms WHERE id = ?', [id]);
+    if (!room) {
+      return res.status(404).json({ success: false, message: '活动室不存在' });
+    }
+    
+    if (!status || !['normal', 'maintenance', 'suspended'].includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '状态必须为: normal, maintenance, suspended' 
+      });
+    }
+    
+    if (status !== 'normal') {
+      if (!start_date || !end_date) {
+        return res.status(400).json({ 
+          success: false, 
+          message: '维护/暂停状态需要指定开始和结束日期' 
+        });
+      }
+      
+      if (!validateDateFormat(start_date) || !validateDateFormat(end_date)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: '日期格式不正确，应为 YYYY-MM-DD' 
+        });
+      }
+      
+      if (start_time && !validateTimeFormat(start_time)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: '开始时间格式不正确，应为 HH:MM' 
+        });
+      }
+      
+      if (end_time && !validateTimeFormat(end_time)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: '结束时间格式不正确，应为 HH:MM' 
+        });
+      }
+      
+      const actualStartTime = start_time || '00:00';
+      const actualEndTime = end_time || '23:59';
+      
+      if (start_date === end_date && actualStartTime >= actualEndTime) {
+        return res.status(400).json({ 
+          success: false, 
+          message: '开始时间必须早于结束时间' 
+        });
+      }
+      
+      if (start_date > end_date) {
+        return res.status(400).json({ 
+          success: false, 
+          message: '开始日期不能晚于结束日期' 
+        });
+      }
+    }
+    
+    let result;
+    let cancelledBookings = [];
+    
+    if (status === 'normal') {
+      result = await db.run(`
+        INSERT INTO room_maintenance (room_id, status, start_date, start_time, end_date, end_time, reason, created_by)
+        VALUES (?, 'normal', CURRENT_DATE, '00:00', CURRENT_DATE, '23:59', ?, ?)
+      `, [id, reason || '恢复正常开放', adminId]);
+    } else {
+      const actualStartTime = start_time || '00:00';
+      const actualEndTime = end_time || '23:59';
+      
+      result = await db.run(`
+        INSERT INTO room_maintenance (room_id, status, start_date, start_time, end_date, end_time, reason, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, [id, status, start_date, actualStartTime, end_date, actualEndTime, reason || null, adminId]);
+      
+      const cancelReason = status === 'maintenance' 
+        ? '活动室维护中，预约已取消' 
+        : '活动室暂停开放，预约已取消';
+      
+      cancelledBookings = await cancelBookingsInMaintenance(
+        id, start_date, actualStartTime, end_date, actualEndTime, adminId, 
+        reason ? `${cancelReason}: ${reason}` : cancelReason
+      );
+    }
+    
+    const newMaintenance = await db.queryOne(`
+      SELECT * FROM room_maintenance WHERE id = ?
+    `, [result.lastID]);
+    
+    res.status(201).json({
+      success: true,
+      message: status === 'normal' 
+        ? '活动室已恢复正常开放' 
+        : (status === 'maintenance' ? '活动室已设置为维护中' : '活动室已暂停开放'),
+      data: {
+        maintenance: newMaintenance,
+        cancelled_bookings: cancelledBookings,
+        cancelled_count: cancelledBookings.length
+      }
+    });
+  } catch (error) {
+    console.error('设置维护状态失败:', error);
+    res.status(500).json({ success: false, message: '设置维护状态失败，请稍后重试' });
+  }
+});
+
+router.put('/rooms/:id/maintenance/:maintenanceId', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id, maintenanceId } = req.params;
+    const { status, start_date, start_time, end_date, end_time, reason } = req.body;
+    const adminId = req.user.id;
+    
+    const room = await db.queryOne('SELECT * FROM rooms WHERE id = ?', [id]);
+    if (!room) {
+      return res.status(404).json({ success: false, message: '活动室不存在' });
+    }
+    
+    const existingMaintenance = await db.queryOne(
+      'SELECT * FROM room_maintenance WHERE id = ? AND room_id = ?',
+      [maintenanceId, id]
+    );
+    
+    if (!existingMaintenance) {
+      return res.status(404).json({ success: false, message: '维护记录不存在' });
+    }
+    
+    const updates = {};
+    if (status !== undefined) {
+      if (!['normal', 'maintenance', 'suspended'].includes(status)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: '状态必须为: normal, maintenance, suspended' 
+        });
+      }
+      updates.status = status;
+    }
+    if (start_date !== undefined) updates.start_date = start_date;
+    if (start_time !== undefined) updates.start_time = start_time;
+    if (end_date !== undefined) updates.end_date = end_date;
+    if (end_time !== undefined) updates.end_time = end_time;
+    if (reason !== undefined) updates.reason = reason;
+    
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, message: '没有需要更新的字段' });
+    }
+    
+    if (updates.status && updates.status !== 'normal') {
+      const actualStartDate = updates.start_date || existingMaintenance.start_date;
+      const actualEndDate = updates.end_date || existingMaintenance.end_date;
+      const actualStartTime = updates.start_time || existingMaintenance.start_time;
+      const actualEndTime = updates.end_time || existingMaintenance.end_time;
+      
+      if (!validateDateFormat(actualStartDate) || !validateDateFormat(actualEndDate)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: '日期格式不正确，应为 YYYY-MM-DD' 
+        });
+      }
+      
+      if (actualStartDate > actualEndDate) {
+        return res.status(400).json({ 
+          success: false, 
+          message: '开始日期不能晚于结束日期' 
+        });
+      }
+      
+      if (actualStartDate === actualEndDate && actualStartTime >= actualEndTime) {
+        return res.status(400).json({ 
+          success: false, 
+          message: '开始时间必须早于结束时间' 
+        });
+      }
+    }
+    
+    const setClauses = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+    const values = [...Object.values(updates), maintenanceId, id];
+    
+    await db.run(`UPDATE room_maintenance SET ${setClauses} WHERE id = ? AND room_id = ?`, values);
+    
+    const updatedMaintenance = await db.queryOne(
+      'SELECT * FROM room_maintenance WHERE id = ?',
+      [maintenanceId]
+    );
+    
+    let cancelledBookings = [];
+    if (updatedMaintenance.status !== 'normal') {
+      const cancelReason = updatedMaintenance.status === 'maintenance' 
+        ? '活动室维护中，预约已取消' 
+        : '活动室暂停开放，预约已取消';
+      
+      cancelledBookings = await cancelBookingsInMaintenance(
+        id, 
+        updatedMaintenance.start_date, 
+        updatedMaintenance.start_time, 
+        updatedMaintenance.end_date, 
+        updatedMaintenance.end_time, 
+        adminId, 
+        updatedMaintenance.reason ? `${cancelReason}: ${updatedMaintenance.reason}` : cancelReason
+      );
+    }
+    
+    res.json({
+      success: true,
+      message: '维护状态已更新',
+      data: {
+        maintenance: updatedMaintenance,
+        cancelled_bookings: cancelledBookings,
+        cancelled_count: cancelledBookings.length
+      }
+    });
+  } catch (error) {
+    console.error('更新维护状态失败:', error);
+    res.status(500).json({ success: false, message: '更新维护状态失败，请稍后重试' });
+  }
+});
+
+router.delete('/rooms/:id/maintenance/:maintenanceId', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id, maintenanceId } = req.params;
+    
+    const room = await db.queryOne('SELECT * FROM rooms WHERE id = ?', [id]);
+    if (!room) {
+      return res.status(404).json({ success: false, message: '活动室不存在' });
+    }
+    
+    const existingMaintenance = await db.queryOne(
+      'SELECT * FROM room_maintenance WHERE id = ? AND room_id = ?',
+      [maintenanceId, id]
+    );
+    
+    if (!existingMaintenance) {
+      return res.status(404).json({ success: false, message: '维护记录不存在' });
+    }
+    
+    await db.run('DELETE FROM room_maintenance WHERE id = ? AND room_id = ?', [maintenanceId, id]);
+    
+    res.json({
+      success: true,
+      message: '维护记录已删除'
+    });
+  } catch (error) {
+    console.error('删除维护记录失败:', error);
+    res.status(500).json({ success: false, message: '删除维护记录失败，请稍后重试' });
+  }
+});
+
+function validateTimeFormat(time) {
+  const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  return timeRegex.test(time);
+}
+
+function validateDateFormat(date) {
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(date)) return false;
+  
+  const parsedDate = new Date(date);
+  return parsedDate instanceof Date && !isNaN(parsedDate);
+}
+
 module.exports = router;

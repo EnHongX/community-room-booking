@@ -32,6 +32,44 @@ async function checkTimeConflict(roomId, date, startTime, endTime, excludeBookin
   return { conflict: false };
 }
 
+async function checkMaintenanceConflict(roomId, date, startTime, endTime) {
+  const maintenances = await db.query(`
+    SELECT * FROM room_maintenance 
+    WHERE room_id = ? 
+      AND status != 'normal'
+      AND (
+        (start_date < ? AND end_date > ?)
+        OR (start_date = ? AND start_time < ?)
+        OR (end_date = ? AND end_time > ?)
+        OR (start_date >= ? AND start_date <= ?)
+        OR (end_date >= ? AND end_date <= ?)
+      )
+  `, [
+    roomId,
+    date, date,
+    date, endTime,
+    date, startTime,
+    date, date,
+    date, date
+  ]);
+  
+  for (const maintenance of maintenances) {
+    const bookingStart = date + ' ' + startTime;
+    const bookingEnd = date + ' ' + endTime;
+    const maintStart = maintenance.start_date + ' ' + maintenance.start_time;
+    const maintEnd = maintenance.end_date + ' ' + maintenance.end_time;
+    
+    if (bookingStart < maintEnd && bookingEnd > maintStart) {
+      return {
+        conflict: true,
+        conflictingMaintenance: maintenance
+      };
+    }
+  }
+  
+  return { conflict: false };
+}
+
 function validateTimeFormat(time) {
   const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
   return timeRegex.test(time);
@@ -109,12 +147,28 @@ router.get('/check-conflict', async (req, res) => {
       });
     }
     
-    const result = await checkTimeConflict(room_id, date, start_time, end_time);
+    const maintenanceResult = await checkMaintenanceConflict(room_id, date, start_time, end_time);
+    if (maintenanceResult.conflict) {
+      return res.status(409).json({ 
+        success: false, 
+        message: maintenanceResult.conflictingMaintenance.status === 'maintenance'
+          ? '该时段活动室正在维护中，无法预约'
+          : '该时段活动室暂停开放，无法预约',
+        data: {
+          hasConflict: true,
+          conflictType: 'maintenance',
+          conflictingMaintenance: maintenanceResult.conflictingMaintenance
+        }
+      });
+    }
+    
+    const timeResult = await checkTimeConflict(room_id, date, start_time, end_time);
     res.json({ 
       success: true, 
       data: {
-        hasConflict: result.conflict,
-        conflictingBooking: result.conflictingBooking
+        hasConflict: timeResult.conflict,
+        conflictType: timeResult.conflict ? 'booking' : null,
+        conflictingBooking: timeResult.conflictingBooking
       }
     });
   } catch (error) {
@@ -160,6 +214,19 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         message: '开始时间必须早于结束时间' 
+      });
+    }
+    
+    const maintenanceResult = await checkMaintenanceConflict(room_id, date, start_time, end_time);
+    if (maintenanceResult.conflict) {
+      return res.status(409).json({ 
+        success: false, 
+        message: maintenanceResult.conflictingMaintenance.status === 'maintenance'
+          ? '该时段活动室正在维护中，无法预约'
+          : '该时段活动室暂停开放，无法预约',
+        data: {
+          conflictingMaintenance: maintenanceResult.conflictingMaintenance
+        }
       });
     }
     
