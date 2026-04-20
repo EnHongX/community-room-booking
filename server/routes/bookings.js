@@ -177,8 +177,8 @@ router.post('/', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     
     const result = await db.run(`
-      INSERT INTO bookings (room_id, user_id, user_name, user_phone, date, start_time, end_time, purpose)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO bookings (room_id, user_id, user_name, user_phone, date, start_time, end_time, purpose, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     `, [room_id, userId, user_name, user_phone, date, start_time, end_time, purpose || null]);
     
     const newBooking = await db.queryOne(`
