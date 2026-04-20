@@ -28,4 +28,26 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+router.get('/:id/maintenance', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const room = await db.queryOne('SELECT * FROM rooms WHERE id = ?', [id]);
+    if (!room) {
+      return res.status(404).json({ success: false, message: '活动室不存在' });
+    }
+    
+    const maintenances = await db.query(`
+      SELECT * FROM room_maintenance 
+      WHERE room_id = ? 
+      ORDER BY created_at DESC
+    `, [id]);
+    
+    res.json({ success: true, data: maintenances });
+  } catch (error) {
+    console.error('获取活动室维护状态失败:', error);
+    res.status(500).json({ success: false, message: '获取维护状态失败' });
+  }
+});
+
 module.exports = router;

@@ -150,6 +150,35 @@ const initDb = async () => {
     }
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS room_maintenance (
+        id SERIAL PRIMARY KEY,
+        room_id INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'normal',
+        start_date TEXT NOT NULL,
+        start_time TEXT NOT NULL DEFAULT '00:00',
+        end_date TEXT NOT NULL,
+        end_time TEXT NOT NULL DEFAULT '23:59',
+        reason TEXT,
+        created_by TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (room_id) REFERENCES rooms(id)
+      )
+    `);
+
+    const maintenanceRoomIdColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'room_maintenance' AND column_name = 'room_id'
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_room_maintenance_room ON room_maintenance(room_id)
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_room_maintenance_dates ON room_maintenance(start_date, end_date)
+    `);
+
+    await client.query(`
       CREATE INDEX IF NOT EXISTS idx_bookings_room_date ON bookings(room_id, date)
     `);
 

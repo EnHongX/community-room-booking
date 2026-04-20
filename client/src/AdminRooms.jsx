@@ -14,7 +14,14 @@ import {
   Typography,
   Tag,
   Row,
-  Col
+  Col,
+  Select,
+  DatePicker,
+  TimePicker,
+  Descriptions,
+  Divider,
+  Timeline,
+  Tooltip
 } from 'antd';
 import {
   PlusOutlined,
@@ -22,11 +29,26 @@ import {
   DeleteOutlined,
   HomeOutlined,
   TeamOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  SettingOutlined,
+  CheckCircleOutlined,
+  WarningOutlined,
+  CloseCircleOutlined,
+  ClockCircleOutlined,
+  HistoryOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
+import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
+const { RangePicker } = DatePicker;
+const { Option } = Select;
+
+const STATUS_MAP = {
+  normal: { label: '正常开放', color: 'success', icon: <CheckCircleOutlined /> },
+  maintenance: { label: '维护中', color: 'warning', icon: <WarningOutlined /> },
+  suspended: { label: '暂停开放', color: 'error', icon: <CloseCircleOutlined /> }
+};
 
 function AdminRooms() {
   const [rooms, setRooms] = useState([]);
@@ -35,6 +57,13 @@ function AdminRooms() {
   const [editingRoom, setEditingRoom] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
+  
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [statusRoom, setStatusRoom] = useState(null);
+  const [maintenanceHistory, setMaintenanceHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [statusForm] = Form.useForm();
+  
   const navigate = useNavigate();
 
   const fetchRooms = useCallback(async () => {
@@ -42,7 +71,39 @@ function AdminRooms() {
     try {
       const response = await axios.get('/api/admin/rooms');
       if (response.data.success) {
-        setRooms(response.data.data);
+        const roomsWithStatus = await Promise.all(
+          response.data.data.map(async (room) => {
+            try {
+              const statusResponse = await axios.get(`/api/admin/rooms/${room.id}/maintenance`);
+              const maintenances = statusResponse.data?.data || [];
+              
+              const now = dayjs();
+              const activeMaintenance = maintenances.find(m => {
+                if (m.status === 'normal') return false;
+                const start = dayjs(`${m.start_date} ${m.start_time}`);
+                const end = dayjs(`${m.end_date} ${m.end_time}`);
+                return now.isAfter(start) && now.isBefore(end);
+              });
+              
+              const upcomingMaintenance = maintenances.find(m => {
+                if (m.status === 'normal') return false;
+                const start = dayjs(`${m.start_date} ${m.start_time}`);
+                return now.isBefore(start);
+              });
+              
+              return {
+                ...room,
+                currentStatus: activeMaintenance ? activeMaintenance.status : 'normal',
+                activeMaintenance,
+                upcomingMaintenance,
+                maintenanceHistory: maintenances
+              };
+            } catch {
+              return { ...room, currentStatus: 'normal', maintenanceHistory: [] };
+            }
+          })
+        );
+        setRooms(roomsWithStatus);
       }
     } catch (error) {
       if (error.response?.status === 401 || error.response?.status === 403) {
@@ -136,6 +197,92 @@ function AdminRooms() {
     }
   };
 
+  const handleOpenStatusModal = async (record) => {
+    setStatusRoom(record);
+    setStatusModalVisible(true);
+    statusForm.resetFields();
+    statusForm.setFieldsValue({
+      status: 'maintenance',
+      start_time: dayjs('00:00', 'HH:mm'),
+      end_time: dayjs('23:59', 'HH:mm')
+    });
+    
+    setHistoryLoading(true);
+    try {
+      const response = await axios.get(`/api/admin/rooms/${record.id}/maintenance`);
+      setMaintenanceHistory(response.data?.data || []);
+    } catch (error) {
+      console.error('获取维护历史失败:', error);
+      message.error('获取维护历史失败');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleStatusSubmit = async (values) => {
+    setSubmitting(true);
+    try {
+      const { status, date_range, start_time, end_time, reason } = values;
+      
+      const data = {
+        status,
+        reason
+      };
+      
+      if (status !== 'normal' && date_range) {
+        data.start_date = date_range[0].format('YYYY-MM-DD');
+        data.end_date = date_range[1].format('YYYY-MM-DD');
+        if (start_time) data.start_time = start_time.format('HH:mm');
+        if (end_time) data.end_time = end_time.format('HH:mm');
+      }
+      
+      const response = await axios.post(`/api/admin/rooms/${statusRoom.id}/maintenance`, data);
+      
+      if (response.data.success) {
+        const { cancelled_count } = response.data.data || {};
+        if (cancelled_count > 0) {
+          message.success(`状态设置成功，已自动取消 ${cancelled_count} 个冲突预约`);
+        } else {
+          message.success(response.data.message || '状态设置成功');
+        }
+        setStatusModalVisible(false);
+        fetchRooms();
+      }
+    } catch (error) {
+      if (error.response?.status === 400) {
+        message.error(error.response.data?.message || '操作失败');
+      } else if (error.response?.status === 401 || error.response?.status === 403) {
+        localStorage.removeItem('admin');
+        localStorage.removeItem('adminSessionId');
+        navigate('/admin/login');
+        message.error('登录已过期，请重新登录');
+      } else {
+        message.error('操作失败，请稍后重试');
+        console.error('操作失败:', error);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderStatusTag = (status, maintenance) => {
+    const config = STATUS_MAP[status] || STATUS_MAP.normal;
+    const tag = (
+      <Tag icon={config.icon} color={config.color}>
+        {config.label}
+      </Tag>
+    );
+    
+    if (maintenance && status !== 'normal') {
+      return (
+        <Tooltip title={`${maintenance.start_date} ${maintenance.start_time} 至 ${maintenance.end_date} ${maintenance.end_time}${maintenance.reason ? `\n原因: ${maintenance.reason}` : ''}`}>
+          {tag}
+        </Tooltip>
+      );
+    }
+    return tag;
+  };
+
   const columns = [
     {
       title: 'ID',
@@ -151,6 +298,22 @@ function AdminRooms() {
         <Space>
           <HomeOutlined style={{ color: '#1890ff' }} />
           <Text strong>{text}</Text>
+        </Space>
+      ),
+    },
+    {
+      title: '当前状态',
+      dataIndex: 'currentStatus',
+      key: 'currentStatus',
+      width: 150,
+      render: (status, record) => (
+        <Space direction="vertical" size="small">
+          {renderStatusTag(status, record.activeMaintenance)}
+          {record.upcomingMaintenance && (
+            <Tag icon={<ClockCircleOutlined />} color="processing">
+              即将{STATUS_MAP[record.upcomingMaintenance.status]?.label}
+            </Tag>
+          )}
         </Space>
       ),
     },
@@ -188,9 +351,16 @@ function AdminRooms() {
     {
       title: '操作',
       key: 'action',
-      width: 180,
+      width: 250,
       render: (_, record) => (
         <Space size="middle">
+          <Button
+            type="link"
+            icon={<SettingOutlined />}
+            onClick={() => handleOpenStatusModal(record)}
+          >
+            状态管理
+          </Button>
           <Button
             type="link"
             icon={<EditOutlined />}
@@ -229,7 +399,7 @@ function AdminRooms() {
               活动室管理
             </Title>
             <Text type="secondary" style={{ marginTop: '4px', display: 'block' }}>
-              管理系统中的所有活动室，包括新增、编辑和删除操作
+              管理系统中的所有活动室，包括新增、编辑、删除和状态管理
             </Text>
           </Col>
           <Col span={12} style={{ textAlign: 'right' }}>
@@ -343,6 +513,209 @@ function AdminRooms() {
             </Space>
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={
+          <Space>
+            <SettingOutlined />
+            <span>状态管理 - {statusRoom?.name}</span>
+          </Space>
+        }
+        open={statusModalVisible}
+        onCancel={() => setStatusModalVisible(false)}
+        footer={null}
+        width={700}
+      >
+        <Form
+          form={statusForm}
+          layout="vertical"
+          onFinish={handleStatusSubmit}
+          style={{ marginTop: '24px' }}
+        >
+          <Card size="small" style={{ marginBottom: '16px' }}>
+            <Descriptions column={2} size="small">
+              <Descriptions.Item label="当前状态">
+                {statusRoom && renderStatusTag(statusRoom.currentStatus, statusRoom.activeMaintenance)}
+              </Descriptions.Item>
+              {statusRoom?.activeMaintenance && (
+                <>
+                  <Descriptions.Item label="维护时段">
+                    {statusRoom.activeMaintenance.start_date} {statusRoom.activeMaintenance.start_time}
+                    <br />
+                    至 {statusRoom.activeMaintenance.end_date} {statusRoom.activeMaintenance.end_time}
+                  </Descriptions.Item>
+                  {statusRoom.activeMaintenance.reason && (
+                    <Descriptions.Item label="原因" span={2}>
+                      {statusRoom.activeMaintenance.reason}
+                    </Descriptions.Item>
+                  )}
+                </>
+              )}
+            </Descriptions>
+          </Card>
+
+          <Divider orientation="left">设置新状态</Divider>
+
+          <Form.Item
+            name="status"
+            label="选择状态"
+            rules={[{ required: true, message: '请选择状态' }]}
+          >
+            <Select size="large">
+              <Option value="normal">
+                <Space>
+                  <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                  恢复正常开放
+                </Space>
+              </Option>
+              <Option value="maintenance">
+                <Space>
+                  <WarningOutlined style={{ color: '#faad14' }} />
+                  设置为维护中
+                </Space>
+              </Option>
+              <Option value="suspended">
+                <Space>
+                  <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+                  设置为暂停开放
+                </Space>
+              </Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            noStyle
+            shouldUpdate={(prevValues, currentValues) => prevValues.status !== currentValues.status}
+          >
+            {({ getFieldValue }) => {
+              const status = getFieldValue('status');
+              if (status === 'normal') return null;
+              
+              return (
+                <>
+                  <Form.Item
+                    name="date_range"
+                    label="日期范围"
+                    rules={[{ required: true, message: '请选择日期范围' }]}
+                  >
+                    <RangePicker
+                      style={{ width: '100%' }}
+                      size="large"
+                      disabledDate={(current) => current && current < dayjs().startOf('day')}
+                    />
+                  </Form.Item>
+
+                  <Row gutter={16}>
+                    <Col span={12}>
+                      <Form.Item
+                        name="start_time"
+                        label="开始时间"
+                        rules={[{ required: true, message: '请选择开始时间' }]}
+                      >
+                        <TimePicker
+                          style={{ width: '100%' }}
+                          size="large"
+                          format="HH:mm"
+                          minuteStep={30}
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col span={12}>
+                      <Form.Item
+                        name="end_time"
+                        label="结束时间"
+                        rules={[{ required: true, message: '请选择结束时间' }]}
+                      >
+                        <TimePicker
+                          style={{ width: '100%' }}
+                          size="large"
+                          format="HH:mm"
+                          minuteStep={30}
+                        />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                </>
+              );
+            }}
+          </Form.Item>
+
+          <Form.Item
+            name="reason"
+            label="原因说明"
+          >
+            <Input.TextArea
+              rows={3}
+              placeholder="请输入原因说明（选填）"
+              maxLength={200}
+              showCount
+            />
+          </Form.Item>
+
+          <Text type="warning" style={{ display: 'block', marginBottom: '16px' }}>
+            <WarningOutlined /> 注意：设置为维护中或暂停开放后，该时段内已存在的预约将被自动取消。
+          </Text>
+
+          <Form.Item style={{ marginBottom: 0 }}>
+            <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+              <Button
+                onClick={() => setStatusModalVisible(false)}
+                size="large"
+              >
+                取消
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={submitting}
+                size="large"
+              >
+                确认设置
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+
+        {maintenanceHistory.length > 0 && (
+          <>
+            <Divider orientation="left">
+              <Space>
+                <HistoryOutlined />
+                状态变更历史
+              </Space>
+            </Divider>
+            <Timeline
+              mode="left"
+              items={maintenanceHistory.slice(0, 10).map((item, index) => ({
+                color: item.status === 'normal' ? 'green' : (item.status === 'maintenance' ? 'gold' : 'red'),
+                children: (
+                  <div>
+                    <Space>
+                      {STATUS_MAP[item.status]?.icon}
+                      <Text strong>{STATUS_MAP[item.status]?.label}</Text>
+                    </Space>
+                    <div style={{ marginTop: '4px' }}>
+                      <Text type="secondary" small>
+                        {item.start_date} {item.start_time} 至 {item.end_date} {item.end_time}
+                      </Text>
+                    </div>
+                    {item.reason && (
+                      <div>
+                        <Text type="secondary" small>原因: {item.reason}</Text>
+                      </div>
+                    )}
+                    <div>
+                      <Text type="secondary" small>
+                        设置时间: {dayjs(item.created_at).format('YYYY-MM-DD HH:mm')}
+                      </Text>
+                    </div>
+                  </div>
+                )
+              }))}
+            />
+          </>
+        )}
       </Modal>
     </div>
   );
