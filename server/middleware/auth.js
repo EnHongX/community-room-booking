@@ -42,7 +42,8 @@ const authMiddleware = async (req, res, next) => {
     
     req.user = {
       id: session.userId,
-      email: session.email
+      email: session.email,
+      isAdmin: session.isAdmin || false
     };
     req.sessionId = sessionId;
     
@@ -76,7 +77,8 @@ const optionalAuthMiddleware = async (req, res, next) => {
     
     req.user = {
       id: session.userId,
-      email: session.email
+      email: session.email,
+      isAdmin: session.isAdmin || false
     };
     req.sessionId = sessionId;
     
@@ -88,8 +90,58 @@ const optionalAuthMiddleware = async (req, res, next) => {
   }
 };
 
+const adminAuthMiddleware = async (req, res, next) => {
+  try {
+    const sessionId = extractSessionId(req);
+    
+    if (!sessionId) {
+      return res.status(401).json({
+        success: false,
+        message: '未登录，请先登录',
+        code: 'UNAUTHORIZED'
+      });
+    }
+    
+    const session = await getSession(sessionId);
+    
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        message: '登录已过期，请重新登录',
+        code: 'SESSION_EXPIRED'
+      });
+    }
+    
+    if (!session.isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: '无权访问，需要管理员权限',
+        code: 'FORBIDDEN'
+      });
+    }
+    
+    await refreshSession(sessionId);
+    
+    req.user = {
+      id: session.userId,
+      email: session.email,
+      isAdmin: session.isAdmin
+    };
+    req.sessionId = sessionId;
+    
+    next();
+  } catch (error) {
+    console.error('管理员认证中间件错误:', error);
+    return res.status(500).json({
+      success: false,
+      message: '认证失败，请稍后重试'
+    });
+  }
+};
+
 module.exports = {
   authMiddleware,
   optionalAuthMiddleware,
+  adminAuthMiddleware,
   extractSessionId
 };

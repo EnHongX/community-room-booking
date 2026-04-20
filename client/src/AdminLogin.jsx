@@ -10,22 +10,22 @@ import {
   Result
 } from 'antd';
 import {
-  UserOutlined,
   LockOutlined,
   MailOutlined,
-  UserAddOutlined,
-  HomeOutlined
+  HomeOutlined,
+  ArrowLeftOutlined,
+  SafetyOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 
-function Login() {
+function AdminLogin() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (values) => {
@@ -33,16 +33,16 @@ function Login() {
     
     setLoading(true);
     try {
-      const response = await axios.post('/api/users/login', {
+      const response = await axios.post('/api/admin/login', {
         email,
         password
       });
 
       if (response.data.success) {
         const { user, sessionId } = response.data.data;
-        localStorage.setItem('user', JSON.stringify(user));
-        localStorage.setItem('sessionId', sessionId);
-        setUserEmail(email);
+        localStorage.setItem('admin', JSON.stringify(user));
+        localStorage.setItem('adminSessionId', sessionId);
+        setAdminEmail(email);
         setLoginSuccess(true);
         message.success(response.data.message);
       }
@@ -52,42 +52,38 @@ function Login() {
       } else {
         message.error('网络错误，请稍后重试');
       }
-      console.error('登录失败:', error);
+      console.error('管理员登录失败:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoToRegister = () => {
-    navigate('/register');
+  const handleGoToLogin = () => {
+    navigate('/login');
   };
 
-  const handleGoToHome = () => {
-    navigate('/home');
-  };
-
-  const handleGoToAdminLogin = () => {
-    navigate('/admin/login');
+  const handleGoToAdminDashboard = () => {
+    navigate('/admin/dashboard');
   };
 
   if (loginSuccess) {
     return (
-      <div className="login-full-page">
-        <div className="login-content-wrapper">
-          <Card className="success-card-full" bordered={false}>
+      <div className="admin-login-full-page">
+        <div className="admin-login-content-wrapper">
+          <Card className="admin-success-card-full" bordered={false}>
             <Result
               status="success"
-              title="登录成功！"
+              title="管理员登录成功！"
               subTitle={
                 <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                  <Text>欢迎回来，<Text strong>{userEmail}</Text></Text>
-                  <Text type="secondary">您现在可以开始使用社区活动室预约系统了</Text>
+                  <Text>欢迎回来，<Text strong>{adminEmail}</Text></Text>
+                  <Text type="secondary">您现在可以进入管理后台</Text>
                 </Space>
               }
               extra={[
-                <Button type="primary" size="large" onClick={handleGoToHome} key="home">
+                <Button type="primary" size="large" onClick={handleGoToAdminDashboard} key="dashboard">
                   <HomeOutlined style={{ marginRight: '8px' }} />
-                  进入系统
+                  进入管理后台
                 </Button>
               ]}
             />
@@ -98,16 +94,16 @@ function Login() {
   }
 
   return (
-    <div className="login-full-page">
-      <div className="login-content-wrapper">
-        <Card className="login-card-full" bordered={false}>
-          <div className="login-title-section">
-            <Title level={2} className="login-title">
-              <UserOutlined style={{ marginRight: '12px' }} />
-              用户登录
+    <div className="admin-login-full-page">
+      <div className="admin-login-content-wrapper">
+        <Card className="admin-login-card-full" bordered={false}>
+          <div className="admin-login-title-section">
+            <Title level={2} className="admin-login-title">
+              <SafetyOutlined style={{ marginRight: '12px', color: '#fa8c16' }} />
+              管理员登录
             </Title>
-            <Text type="secondary" className="login-subtitle">
-              登录账户，使用社区活动室预约系统
+            <Text type="secondary" className="admin-login-subtitle">
+              请使用管理员账号登录管理后台
             </Text>
           </div>
 
@@ -116,32 +112,32 @@ function Login() {
             layout="vertical"
             onFinish={handleSubmit}
             size="large"
-            className="login-form"
+            className="admin-login-form"
           >
             <Form.Item
               name="email"
-              label="邮箱地址"
+              label="管理员邮箱"
               rules={[
-                { required: true, message: '请输入邮箱地址' },
+                { required: true, message: '请输入管理员邮箱' },
                 { type: 'email', message: '请输入有效的邮箱地址' }
               ]}
               validateTrigger="onBlur"
             >
               <Input 
-                placeholder="请输入您的邮箱地址" 
+                placeholder="请输入管理员邮箱" 
                 prefix={<MailOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
               />
             </Form.Item>
 
             <Form.Item
               name="password"
-              label="密码"
+              label="管理员密码"
               rules={[
-                { required: true, message: '请输入密码' }
+                { required: true, message: '请输入管理员密码' }
               ]}
             >
               <Input.Password 
-                placeholder="请输入密码" 
+                placeholder="请输入管理员密码" 
                 prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
               />
             </Form.Item>
@@ -154,27 +150,18 @@ function Login() {
                   loading={loading}
                   size="large"
                   block
-                  className="login-button-full"
+                  className="admin-login-button-full"
                 >
                   登录
                 </Button>
                 <Button 
-                  icon={<UserAddOutlined />} 
-                  onClick={handleGoToRegister}
+                  icon={<ArrowLeftOutlined />} 
+                  onClick={handleGoToLogin}
                   block
-                  className="register-nav-button"
+                  className="admin-back-login-button"
                 >
-                  没有账户？立即注册
+                  返回用户登录
                 </Button>
-                <div style={{ textAlign: 'center', marginTop: '16px' }}>
-                  <Text 
-                    type="secondary" 
-                    style={{ cursor: 'pointer', fontSize: '12px' }}
-                    onClick={handleGoToAdminLogin}
-                  >
-                    管理员登录
-                  </Text>
-                </div>
               </Space>
             </Form.Item>
           </Form>
@@ -184,4 +171,4 @@ function Login() {
   );
 }
 
-export default Login;
+export default AdminLogin;

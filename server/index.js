@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const roomsRouter = require('./routes/rooms');
 const bookingsRouter = require('./routes/bookings');
 const usersRouter = require('./routes/users');
+const adminRouter = require('./routes/admin');
 const db = require('./database');
 const redis = require('./redis');
 
@@ -17,6 +18,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/api/rooms', roomsRouter);
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/admin', adminRouter);
 
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: '服务运行正常' });
