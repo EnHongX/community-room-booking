@@ -112,13 +112,41 @@ const initDb = async () => {
     }
 
     const reviewedByColumnCheck = await client.query(`
-      SELECT column_name FROM information_schema.columns 
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
       WHERE table_name = 'bookings' AND column_name = 'reviewed_by'
     `);
     
     if (reviewedByColumnCheck.rows.length === 0) {
-      await client.query(`ALTER TABLE bookings ADD COLUMN reviewed_by INTEGER REFERENCES users(id)`);
+      await client.query(`ALTER TABLE bookings ADD COLUMN reviewed_by TEXT`);
       console.log('已添加 reviewed_by 字段到 bookings 表');
+    } else {
+      const columnType = reviewedByColumnCheck.rows[0].data_type;
+      if (columnType !== 'text' && columnType !== 'character varying') {
+        try {
+          const fkConstraintCheck = await client.query(`
+            SELECT constraint_name 
+            FROM information_schema.table_constraints 
+            WHERE table_name = 'bookings' 
+              AND constraint_type = 'FOREIGN KEY'
+              AND constraint_name LIKE '%reviewed_by%'
+          `);
+          
+          for (const constraint of fkConstraintCheck.rows) {
+            await client.query(`ALTER TABLE bookings DROP CONSTRAINT ${constraint.constraint_name}`);
+            console.log(`已删除外键约束: ${constraint.constraint_name}`);
+          }
+        } catch (e) {
+          console.log('检查或删除外键约束时出错（可能不存在）:', e.message);
+        }
+        
+        try {
+          await client.query(`ALTER TABLE bookings ALTER COLUMN reviewed_by TYPE TEXT`);
+          console.log('已将 reviewed_by 字段类型修改为 TEXT');
+        } catch (e) {
+          console.log('修改字段类型时出错:', e.message);
+        }
+      }
     }
 
     await client.query(`
