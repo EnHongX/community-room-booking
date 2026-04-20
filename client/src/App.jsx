@@ -31,7 +31,10 @@ import {
   UserAddOutlined,
   HomeOutlined,
   LogoutOutlined,
-  SettingOutlined
+  SettingOutlined,
+  CheckCircleOutlined,
+  WarningOutlined,
+  CloseCircleOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
