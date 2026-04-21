@@ -773,4 +773,230 @@ function validateDateFormat(date) {
   return parsedDate instanceof Date && !isNaN(parsedDate);
 }
 
+router.get('/stats', adminAuthMiddleware, async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const totalBookingsResult = await db.queryOne('SELECT COUNT(*) as count FROM bookings');
+    const totalRoomsResult = await db.queryOne('SELECT COUNT(*) as count FROM rooms');
+    const totalUsersResult = await db.queryOne('SELECT COUNT(*) as count FROM users');
+    const todayBookingsResult = await db.queryOne(
+      'SELECT COUNT(*) as count FROM bookings WHERE date = ?',
+      [today]
+    );
+    
+    const stats = {
+      total_bookings: parseInt(totalBookingsResult.count) || 0,
+      total_rooms: parseInt(totalRoomsResult.count) || 0,
+      total_users: parseInt(totalUsersResult.count) || 0,
+      today_bookings: parseInt(todayBookingsResult.count) || 0,
+      today
+    };
+    
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('获取统计数据失败:', error);
+    res.status(500).json({ success: false, message: '获取统计数据失败，请稍后重试' });
+  }
+});
+
+router.get('/stats/trend', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { period = 'week', start_date, end_date } = req.query;
+    
+    let dateFormat, groupBy, limit;
+    const today = new Date();
+    
+    switch (period) {
+      case 'month':
+        dateFormat = 'YYYY-MM';
+        groupBy = 'month';
+        limit = 12;
+        break;
+      case 'year':
+        dateFormat = 'YYYY';
+        groupBy = 'year';
+        limit = 5;
+        break;
+      case 'week':
+      default:
+        dateFormat = 'YYYY-MM-DD';
+        groupBy = 'day';
+        limit = 7;
+        break;
+    }
+    
+    let bookingsTrend = [];
+    let usersTrend = [];
+    let roomsTrend = [];
+    
+    if (groupBy === 'day') {
+      const days = [];
+      for (let i = limit - 1; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        days.push(date.toISOString().split('T')[0]);
+      }
+      
+      const bookingsByDay = await db.query(`
+        SELECT date, COUNT(*) as count 
+        FROM bookings 
+        WHERE date IN (${days.map(() => '?').join(', ')})
+        GROUP BY date
+        ORDER BY date
+      `, days);
+      
+      const bookingsMap = {};
+      bookingsByDay.forEach(item => {
+        bookingsMap[item.date] = parseInt(item.count);
+      });
+      
+      days.forEach(date => {
+        bookingsTrend.push({
+          date,
+          bookings: bookingsMap[date] || 0
+        });
+      });
+      
+      const usersByDay = await db.query(`
+        SELECT DATE(created_at) as date, COUNT(*) as count 
+        FROM users 
+        WHERE DATE(created_at) IN (${days.map(() => '?').join(', ')})
+        GROUP BY DATE(created_at)
+        ORDER BY date
+      `, days);
+      
+      const usersMap = {};
+      usersByDay.forEach(item => {
+        usersMap[item.date] = parseInt(item.count);
+      });
+      
+      days.forEach(date => {
+        usersTrend.push({
+          date,
+          users: usersMap[date] || 0
+        });
+      });
+      
+    } else if (groupBy === 'month') {
+      const months = [];
+      for (let i = limit - 1; i >= 0; i--) {
+        const date = new Date(today);
+        date.setMonth(date.getMonth() - i);
+        const month = date.toISOString().slice(0, 7);
+        months.push(month);
+      }
+      
+      const bookingsByMonth = await db.query(`
+        SELECT SUBSTRING(date, 1, 7) as month, COUNT(*) as count 
+        FROM bookings 
+        WHERE SUBSTRING(date, 1, 7) IN (${months.map(() => '?').join(', ')})
+        GROUP BY SUBSTRING(date, 1, 7)
+        ORDER BY month
+      `, months);
+      
+      const bookingsMap = {};
+      bookingsByMonth.forEach(item => {
+        bookingsMap[item.month] = parseInt(item.count);
+      });
+      
+      months.forEach(month => {
+        bookingsTrend.push({
+          date: month,
+          bookings: bookingsMap[month] || 0
+        });
+      });
+      
+      const usersByMonth = await db.query(`
+        SELECT TO_CHAR(created_at, 'YYYY-MM') as month, COUNT(*) as count 
+        FROM users 
+        WHERE TO_CHAR(created_at, 'YYYY-MM') IN (${months.map(() => '?').join(', ')})
+        GROUP BY TO_CHAR(created_at, 'YYYY-MM')
+        ORDER BY month
+      `, months);
+      
+      const usersMap = {};
+      usersByMonth.forEach(item => {
+        usersMap[item.month] = parseInt(item.count);
+      });
+      
+      months.forEach(month => {
+        usersTrend.push({
+          date: month,
+          users: usersMap[month] || 0
+        });
+      });
+      
+    } else if (groupBy === 'year') {
+      const years = [];
+      for (let i = limit - 1; i >= 0; i--) {
+        const year = today.getFullYear() - i;
+        years.push(year.toString());
+      }
+      
+      const bookingsByYear = await db.query(`
+        SELECT SUBSTRING(date, 1, 4) as year, COUNT(*) as count 
+        FROM bookings 
+        WHERE SUBSTRING(date, 1, 4) IN (${years.map(() => '?').join(', ')})
+        GROUP BY SUBSTRING(date, 1, 4)
+        ORDER BY year
+      `, years);
+      
+      const bookingsMap = {};
+      bookingsByYear.forEach(item => {
+        bookingsMap[item.year] = parseInt(item.count);
+      });
+      
+      years.forEach(year => {
+        bookingsTrend.push({
+          date: year,
+          bookings: bookingsMap[year] || 0
+        });
+      });
+      
+      const usersByYear = await db.query(`
+        SELECT TO_CHAR(created_at, 'YYYY') as year, COUNT(*) as count 
+        FROM users 
+        WHERE TO_CHAR(created_at, 'YYYY') IN (${years.map(() => '?').join(', ')})
+        GROUP BY TO_CHAR(created_at, 'YYYY')
+        ORDER BY year
+      `, years);
+      
+      const usersMap = {};
+      usersByYear.forEach(item => {
+        usersMap[item.year] = parseInt(item.count);
+      });
+      
+      years.forEach(year => {
+        usersTrend.push({
+          date: year,
+          users: usersMap[year] || 0
+        });
+      });
+    }
+    
+    const totalRoomsResult = await db.queryOne('SELECT COUNT(*) as count FROM rooms');
+    roomsTrend = [{
+      date: today.toISOString().split('T')[0],
+      rooms: parseInt(totalRoomsResult.count) || 0
+    }];
+    
+    res.json({
+      success: true,
+      data: {
+        period,
+        bookings_trend: bookingsTrend,
+        users_trend: usersTrend,
+        rooms_trend: roomsTrend
+      }
+    });
+  } catch (error) {
+    console.error('获取趋势数据失败:', error);
+    res.status(500).json({ success: false, message: '获取趋势数据失败，请稍后重试' });
+  }
+});
+
 module.exports = router;

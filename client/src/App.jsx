@@ -59,7 +59,10 @@ const STATUS_MAP = {
 axios.interceptors.request.use(
   (config) => {
     const sessionId = localStorage.getItem('sessionId');
-    if (sessionId) {
+    const adminSessionId = localStorage.getItem('adminSessionId');
+    if (adminSessionId) {
+      config.headers.Authorization = `Bearer ${adminSessionId}`;
+    } else if (sessionId) {
       config.headers.Authorization = `Bearer ${sessionId}`;
     }
     return config;
@@ -77,8 +80,14 @@ axios.interceptors.response.use(
     if (error.response?.status === 401) {
       const code = error.response.data?.code;
       if (code === 'UNAUTHORIZED' || code === 'SESSION_EXPIRED') {
-        localStorage.removeItem('user');
-        localStorage.removeItem('sessionId');
+        const isAdminPath = error.config?.url?.includes('/admin/');
+        if (isAdminPath) {
+          localStorage.removeItem('admin');
+          localStorage.removeItem('adminSessionId');
+        } else {
+          localStorage.removeItem('user');
+          localStorage.removeItem('sessionId');
+        }
       }
     }
     return Promise.reject(error);
