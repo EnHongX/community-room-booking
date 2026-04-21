@@ -74,6 +74,7 @@ const initDb = async () => {
         date TEXT NOT NULL,
         start_time TEXT NOT NULL,
         end_time TEXT NOT NULL,
+        participants INTEGER DEFAULT 1,
         purpose TEXT,
         status TEXT DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -169,6 +170,16 @@ const initDb = async () => {
           console.log('修改字段类型时出错:', e.message);
         }
       }
+    }
+
+    const participantsColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'bookings' AND column_name = 'participants'
+    `);
+    
+    if (participantsColumnCheck.rows.length === 0) {
+      await client.query(`ALTER TABLE bookings ADD COLUMN participants INTEGER DEFAULT 1`);
+      console.log('已添加 participants 字段到 bookings 表');
     }
 
     await client.query(`

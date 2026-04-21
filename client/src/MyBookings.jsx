@@ -29,7 +29,8 @@ import {
   DeleteOutlined,
   EyeOutlined,
   CheckCircleOutlined,
-  CloseCircleOutlined
+  CloseCircleOutlined,
+  TeamOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
@@ -448,8 +449,16 @@ function MyBookings() {
                   <span>{selectedBooking.user_phone}</span>
                 </Space>
               </Descriptions.Item>
+              {selectedBooking.participants && (
+                <Descriptions.Item label="参与人数">
+                  <Space>
+                    <TeamOutlined />
+                    <span>{selectedBooking.participants} 人</span>
+                  </Space>
+                </Descriptions.Item>
+              )}
               {selectedBooking.purpose && (
-                <Descriptions.Item label="使用用途">
+                <Descriptions.Item label="活动用途/备注">
                   {selectedBooking.purpose}
                 </Descriptions.Item>
               )}

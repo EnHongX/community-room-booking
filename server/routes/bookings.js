@@ -214,7 +214,7 @@ router.get('/check-conflict', async (req, res) => {
 
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { room_id, user_name, user_phone, date, start_time, end_time, purpose } = req.body;
+    const { room_id, user_name, user_phone, date, start_time, end_time, participants, purpose } = req.body;
     
     if (!room_id || !user_name || !user_phone || !date || !start_time || !end_time) {
       return res.status(400).json({ 
@@ -228,6 +228,21 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.status(404).json({ 
         success: false, 
         message: '活动室不存在' 
+      });
+    }
+
+    const participantsNum = participants ? parseInt(participants) : 1;
+    if (isNaN(participantsNum) || participantsNum < 1) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '参与人数必须是大于等于1的数字' 
+      });
+    }
+    
+    if (participantsNum > room.capacity) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `参与人数（${participantsNum}人）超过该活动室容纳人数（${room.capacity}人）` 
       });
     }
     
@@ -287,9 +302,9 @@ router.post('/', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     
     const result = await db.run(`
-      INSERT INTO bookings (room_id, user_id, user_name, user_phone, date, start_time, end_time, purpose, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-    `, [room_id, userId, user_name, user_phone, date, start_time, end_time, purpose || null]);
+      INSERT INTO bookings (room_id, user_id, user_name, user_phone, date, start_time, end_time, participants, purpose, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+    `, [room_id, userId, user_name, user_phone, date, start_time, end_time, participantsNum, purpose || null]);
     
     const newBooking = await db.queryOne(`
       SELECT b.*, r.name as room_name 
