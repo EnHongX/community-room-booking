@@ -21,7 +21,8 @@ import {
   TeamOutlined,
   SettingOutlined,
   LogoutOutlined,
-  UserOutlined
+  UserOutlined,
+  NotificationOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 
@@ -73,6 +74,8 @@ function AdminDashboard() {
       return 'bookings';
     } else if (path === '/admin/rooms') {
       return 'rooms';
+    } else if (path === '/admin/announcements') {
+      return 'announcements';
     }
     return 'dashboard';
   }, [location.pathname]);
@@ -86,6 +89,8 @@ function AdminDashboard() {
         return '活动室管理';
       case 'bookings':
         return '预约管理';
+      case 'announcements':
+        return '公告管理';
       case 'users':
         return '用户管理';
       case 'settings':
@@ -172,6 +177,9 @@ function AdminDashboard() {
       case 'rooms':
         navigate('/admin/rooms');
         break;
+      case 'announcements':
+        navigate('/admin/announcements');
+        break;
       default:
         message.info('该功能正在开发中');
         break;
@@ -193,6 +201,11 @@ function AdminDashboard() {
       key: 'rooms',
       icon: <HomeOutlined />,
       label: '活动室管理'
+    },
+    {
+      key: 'announcements',
+      icon: <NotificationOutlined />,
+      label: '公告管理'
     },
     {
       key: 'users',

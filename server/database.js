@@ -200,6 +200,36 @@ const initDb = async () => {
       }
       console.log('初始化活动室数据完成');
     }
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS announcements (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_by TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        published_at TIMESTAMP
+      )
+    `);
+
+    const statusColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'announcements' AND column_name = 'status'
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_announcements_status ON announcements(status)
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_announcements_created_at ON announcements(created_at DESC)
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_announcements_published_at ON announcements(published_at DESC)
+    `);
   } catch (error) {
     throw error;
   } finally {
