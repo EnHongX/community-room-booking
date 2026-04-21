@@ -7,6 +7,7 @@ import {
   Modal,
   Form,
   Input,
+  InputNumber,
   DatePicker,
   TimePicker,
   Button,
@@ -826,7 +827,7 @@ function HomePage() {
                   { type: 'number', min: 1, message: '参与人数必须大于等于1' }
                 ]}
               >
-                <Input.Number
+                <InputNumber
                   style={{ width: '100%' }}
                   placeholder="请输入参与人数"
                   min={1}
