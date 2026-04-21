@@ -47,6 +47,7 @@ import AdminDashboard from './AdminDashboard';
 import AdminConsole from './AdminConsole';
 import AdminRooms from './AdminRooms';
 import AdminBookings from './AdminBookings';
+import AdminAnnouncements from './AdminAnnouncements';
 
 const { Title, Text } = Typography;
 
@@ -115,6 +116,8 @@ function HomePage() {
   const [checkingConflict, setCheckingConflict] = useState(false);
   const [dateBookings, setDateBookings] = useState([]);
   const [user, setUser] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
   const [form] = Form.useForm();
   const navigate = useNavigate();
 
@@ -137,9 +140,24 @@ function HomePage() {
     }
   }, []);
 
+  const fetchAnnouncements = async () => {
+    setAnnouncementsLoading(true);
+    try {
+      const response = await axios.get('/api/announcements');
+      if (response.data.success) {
+        setAnnouncements(response.data.data || []);
+      }
+    } catch (error) {
+      console.error('获取公告列表失败:', error);
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchRooms();
     fetchUserInfo();
+    fetchAnnouncements();
   }, [fetchUserInfo]);
 
   const fetchRooms = async () => {
@@ -432,6 +450,83 @@ function HomePage() {
         </div>
       </div>
 
+      {announcements.length > 0 && (
+        <div style={{ 
+          padding: '0 24px', 
+          marginTop: '-40px', 
+          marginBottom: '24px',
+          position: 'relative',
+          zIndex: 10
+        }}>
+          <Card 
+            style={{ 
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+            }}
+          >
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              marginBottom: '16px',
+              color: 'white'
+            }}>
+              <NotificationOutlined style={{ fontSize: '24px', marginRight: '12px' }} />
+              <Title level={4} style={{ margin: 0, color: 'white' }}>
+                系统公告
+              </Title>
+            </div>
+            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              {announcements.map((announcement, index) => (
+                <div 
+                  key={announcement.id}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    marginBottom: index < announcements.length - 1 ? '12px' : '0'
+                  }}
+                >
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'flex-start',
+                    marginBottom: '8px'
+                  }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      maxWidth: '80%'
+                    }}>
+                      <InfoCircleOutlined style={{ 
+                        color: '#667eea', 
+                        marginRight: '8px',
+                        flexShrink: 0
+                      }} />
+                      <Text strong style={{ fontSize: '16px', color: '#333' }}>
+                        {announcement.title}
+                      </Text>
+                    </div>
+                    <Text type="secondary" style={{ fontSize: '12px', flexShrink: 0, marginLeft: '12px' }}>
+                      {dayjs(announcement.published_at || announcement.created_at).format('YYYY-MM-DD HH:mm')}
+                    </Text>
+                  </div>
+                  <Text style={{ 
+                    display: 'block', 
+                    color: '#666',
+                    lineHeight: '1.6',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                  }}>
+                    {announcement.content}
+                  </Text>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
       <div className="content-area">
         <Row gutter={[16, 16]}>
           {rooms.map((room) => {
@@ -698,6 +793,7 @@ function App() {
         <Route path="dashboard" element={<AdminConsole />} />
         <Route path="bookings" element={<AdminBookings />} />
         <Route path="rooms" element={<AdminRooms />} />
+        <Route path="announcements" element={<AdminAnnouncements />} />
         <Route index element={<AdminConsole />} />
       </Route>
     </Routes>

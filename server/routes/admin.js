@@ -999,4 +999,204 @@ router.get('/stats/trend', adminAuthMiddleware, async (req, res) => {
   }
 });
 
+router.get('/announcements', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { status, page = 1, page_size = 20 } = req.query;
+    
+    let sql = 'SELECT * FROM announcements WHERE 1=1';
+    const params = [];
+    const countParams = [];
+    
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(status);
+      countParams.push(status);
+    }
+    
+    const countSql = `SELECT COUNT(*) as total FROM announcements WHERE 1=1${status ? ' AND status = ?' : ''}`;
+    const countResult = await db.queryOne(countSql, countParams);
+    const total = parseInt(countResult.total);
+    
+    sql += ' ORDER BY created_at DESC';
+    
+    const offset = (parseInt(page) - 1) * parseInt(page_size);
+    sql += ' LIMIT ? OFFSET ?';
+    params.push(parseInt(page_size), offset);
+    
+    const announcements = await db.query(sql, params);
+    
+    res.json({
+      success: true,
+      data: {
+        announcements,
+        pagination: {
+          page: parseInt(page),
+          page_size: parseInt(page_size),
+          total,
+          total_pages: Math.ceil(total / parseInt(page_size))
+        }
+      }
+    });
+  } catch (error) {
+    console.error('获取公告列表失败:', error);
+    res.status(500).json({ success: false, message: '获取公告列表失败' });
+  }
+});
+
+router.get('/announcements/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const announcement = await db.queryOne('SELECT * FROM announcements WHERE id = ?', [id]);
+    
+    if (!announcement) {
+      return res.status(404).json({ success: false, message: '公告不存在' });
+    }
+    
+    res.json({ success: true, data: announcement });
+  } catch (error) {
+    console.error('获取公告详情失败:', error);
+    res.status(500).json({ success: false, message: '获取公告详情失败' });
+  }
+});
+
+router.post('/announcements', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { title, content, status } = req.body;
+    const adminId = req.user.id;
+    
+    if (!title) {
+      return res.status(400).json({ success: false, message: '公告标题为必填项' });
+    }
+    
+    if (!content) {
+      return res.status(400).json({ success: false, message: '公告内容为必填项' });
+    }
+    
+    if (status && !['pending', 'published', 'cancelled'].includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '状态必须为: pending, published, cancelled' 
+      });
+    }
+    
+    const actualStatus = status || 'pending';
+    const publishedAt = actualStatus === 'published' ? 'CURRENT_TIMESTAMP' : null;
+    
+    let result;
+    if (publishedAt) {
+      result = await db.run(`
+        INSERT INTO announcements (title, content, status, created_by, published_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `, [title, content, actualStatus, adminId]);
+    } else {
+      result = await db.run(`
+        INSERT INTO announcements (title, content, status, created_by)
+        VALUES (?, ?, ?, ?)
+      `, [title, content, actualStatus, adminId]);
+    }
+    
+    const newAnnouncement = await db.queryOne('SELECT * FROM announcements WHERE id = ?', [result.lastID]);
+    
+    res.status(201).json({
+      success: true,
+      message: '公告创建成功',
+      data: newAnnouncement
+    });
+  } catch (error) {
+    console.error('创建公告失败:', error);
+    res.status(500).json({ success: false, message: '创建公告失败，请稍后重试' });
+  }
+});
+
+router.put('/announcements/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, content, status } = req.body;
+    const adminId = req.user.id;
+    
+    const existingAnnouncement = await db.queryOne('SELECT * FROM announcements WHERE id = ?', [id]);
+    if (!existingAnnouncement) {
+      return res.status(404).json({ success: false, message: '公告不存在' });
+    }
+    
+    const updates = {};
+    if (title !== undefined) {
+      if (!title) {
+        return res.status(400).json({ success: false, message: '公告标题不能为空' });
+      }
+      updates.title = title;
+    }
+    if (content !== undefined) {
+      if (!content) {
+        return res.status(400).json({ success: false, message: '公告内容不能为空' });
+      }
+      updates.content = content;
+    }
+    if (status !== undefined) {
+      if (!['pending', 'published', 'cancelled'].includes(status)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: '状态必须为: pending, published, cancelled' 
+        });
+      }
+      updates.status = status;
+      
+      if (status === 'published' && !existingAnnouncement.published_at) {
+        updates.published_at = 'CURRENT_TIMESTAMP';
+      }
+    }
+    
+    updates.updated_at = 'CURRENT_TIMESTAMP';
+    
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, message: '没有需要更新的字段' });
+    }
+    
+    const setClauses = Object.keys(updates).map(key => {
+      if (updates[key] === 'CURRENT_TIMESTAMP') {
+        return `${key} = CURRENT_TIMESTAMP`;
+      }
+      return `${key} = ?`;
+    }).join(', ');
+    
+    const values = Object.values(updates).filter(val => val !== 'CURRENT_TIMESTAMP');
+    values.push(id);
+    
+    await db.run(`UPDATE announcements SET ${setClauses} WHERE id = ?`, values);
+    
+    const updatedAnnouncement = await db.queryOne('SELECT * FROM announcements WHERE id = ?', [id]);
+    
+    res.json({
+      success: true,
+      message: '公告更新成功',
+      data: updatedAnnouncement
+    });
+  } catch (error) {
+    console.error('更新公告失败:', error);
+    res.status(500).json({ success: false, message: '更新公告失败，请稍后重试' });
+  }
+});
+
+router.delete('/announcements/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const existingAnnouncement = await db.queryOne('SELECT * FROM announcements WHERE id = ?', [id]);
+    if (!existingAnnouncement) {
+      return res.status(404).json({ success: false, message: '公告不存在' });
+    }
+    
+    await db.run('DELETE FROM announcements WHERE id = ?', [id]);
+    
+    res.json({
+      success: true,
+      message: '公告删除成功'
+    });
+  } catch (error) {
+    console.error('删除公告失败:', error);
+    res.status(500).json({ success: false, message: '删除公告失败，请稍后重试' });
+  }
+});
+
 module.exports = router;

@@ -20,6 +20,22 @@ app.use('/api/bookings', bookingsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/admin', adminRouter);
 
+app.get('/api/announcements', async (req, res) => {
+  try {
+    const announcements = await db.query(`
+      SELECT id, title, content, published_at, created_at 
+      FROM announcements 
+      WHERE status = 'published' 
+      ORDER BY published_at DESC, created_at DESC
+    `);
+    
+    res.json({ success: true, data: announcements });
+  } catch (error) {
+    console.error('获取公告列表失败:', error);
+    res.status(500).json({ success: false, message: '获取公告列表失败' });
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: '服务运行正常' });
 });
