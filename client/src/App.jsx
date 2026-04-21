@@ -287,6 +287,7 @@ function HomePage() {
         date: values.date.format('YYYY-MM-DD'),
         start_time: values.start_time.format('HH:mm'),
         end_time: values.end_time.format('HH:mm'),
+        participants: values.participants,
         purpose: values.purpose
       });
 
@@ -613,7 +614,7 @@ function HomePage() {
         title={
           <Space>
             <span style={{ fontSize: '24px' }}>{getRoomIcon(selectedRoom?.name)}</span>
-            <span>{selectedRoom?.name} - 预约</span>
+            <span>{selectedRoom?.name}{user ? ' - 预约' : ' - 详情'}</span>
           </Space>
         }
         open={bookingModalVisible}
@@ -640,6 +641,7 @@ function HomePage() {
                   <p><strong>名称：</strong>{selectedRoom.name}</p>
                   <p><strong>描述：</strong>{selectedRoom.description}</p>
                   <p><strong>容纳人数：</strong>{selectedRoom.capacity} 人</p>
+                  <p><strong>开放时间：</strong>{selectedRoom.open_time || '08:00'} - {selectedRoom.close_time || '22:00'}</p>
                 </div>
               }
               type="info"
@@ -647,11 +649,42 @@ function HomePage() {
               style={{ marginBottom: '20px' }}
             />
 
-            <Form
-              form={form}
-              layout="vertical"
-              onFinish={handleSubmitBooking}
-            >
+            {!user ? (
+              <Alert
+                message={
+                  <Space>
+                    <InfoCircleOutlined />
+                    <span>登录后可预约</span>
+                  </Space>
+                }
+                description={
+                  <div style={{ marginTop: '12px' }}>
+                    <Text type="secondary">请登录后进行活动室预约。</Text>
+                    <div style={{ marginTop: '16px' }}>
+                      <Space>
+                        <Link to="/login">
+                          <Button type="primary" icon={<LoginOutlined />}>
+                            立即登录
+                          </Button>
+                        </Link>
+                        <Link to="/register">
+                          <Button icon={<UserAddOutlined />}>
+                            注册账号
+                          </Button>
+                        </Link>
+                      </Space>
+                    </div>
+                  </div>
+                }
+                type="warning"
+                showIcon
+              />
+            ) : (
+              <Form
+                form={form}
+                layout="vertical"
+                onFinish={handleSubmitBooking}
+              >
               <Row gutter={16}>
                 <Col span={24}>
                   <Form.Item
@@ -781,17 +814,38 @@ function HomePage() {
               </Row>
 
               <Form.Item
+                name="participants"
+                label={
+                  <Space>
+                    <TeamOutlined />
+                    <span>参与人数</span>
+                  </Space>
+                }
+                rules={[
+                  { required: true, message: '请输入参与人数' },
+                  { type: 'number', min: 1, message: '参与人数必须大于等于1' }
+                ]}
+              >
+                <Input.Number
+                  style={{ width: '100%' }}
+                  placeholder="请输入参与人数"
+                  min={1}
+                  max={selectedRoom?.capacity || 100}
+                />
+              </Form.Item>
+
+              <Form.Item
                 name="purpose"
                 label={
                   <Space>
                     <InfoCircleOutlined />
-                    <span>使用用途</span>
+                    <span>活动用途/备注</span>
                   </Space>
                 }
               >
                 <Input.TextArea
                   rows={3}
-                  placeholder="请简要说明使用用途（选填）"
+                  placeholder="请简要说明活动用途或备注（选填）"
                   maxLength={200}
                   showCount
                 />
@@ -818,6 +872,7 @@ function HomePage() {
                 </Space>
               </Form.Item>
             </Form>
+            )}
           </>
         )}
       </Modal>

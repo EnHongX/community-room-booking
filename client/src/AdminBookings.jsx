@@ -27,7 +27,8 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   HomeOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  TeamOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 
@@ -396,8 +397,16 @@ function AdminBookings() {
                   <Text>{selectedBooking.start_time} - {selectedBooking.end_time}</Text>
                 </Space>
               </Descriptions.Item>
+              {selectedBooking.participants && (
+                <Descriptions.Item label="参与人数">
+                  <Space>
+                    <TeamOutlined />
+                    <Text>{selectedBooking.participants} 人</Text>
+                  </Space>
+                </Descriptions.Item>
+              )}
               {selectedBooking.purpose && (
-                <Descriptions.Item label="使用用途" span={2}>
+                <Descriptions.Item label="活动用途/备注" span={2}>
                   {selectedBooking.purpose}
                 </Descriptions.Item>
               )}
