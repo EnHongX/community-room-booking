@@ -38,9 +38,31 @@ const initDb = async () => {
         name TEXT NOT NULL,
         description TEXT,
         capacity INTEGER NOT NULL,
+        open_time TEXT NOT NULL DEFAULT '08:00',
+        close_time TEXT NOT NULL DEFAULT '22:00',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    const openTimeColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'rooms' AND column_name = 'open_time'
+    `);
+    
+    if (openTimeColumnCheck.rows.length === 0) {
+      await client.query(`ALTER TABLE rooms ADD COLUMN open_time TEXT NOT NULL DEFAULT '08:00'`);
+      console.log('已添加 open_time 字段到 rooms 表');
+    }
+
+    const closeTimeColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'rooms' AND column_name = 'close_time'
+    `);
+    
+    if (closeTimeColumnCheck.rows.length === 0) {
+      await client.query(`ALTER TABLE rooms ADD COLUMN close_time TEXT NOT NULL DEFAULT '22:00'`);
+      console.log('已添加 close_time 字段到 rooms 表');
+    }
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS bookings (
@@ -185,17 +207,17 @@ const initDb = async () => {
     const result = await client.query('SELECT COUNT(*) as count FROM rooms');
     if (parseInt(result.rows[0].count) === 0) {
       const initRooms = [
-        { name: '多功能活动室', description: '可用于会议、培训、讲座等多种活动', capacity: 50 },
-        { name: '图书阅览室', description: '安静的阅读空间，提供各类图书', capacity: 30 },
-        { name: '健身室', description: '配备基本健身器材，适合日常锻炼', capacity: 15 },
-        { name: '棋牌室', description: '提供棋牌娱乐设施，适合休闲活动', capacity: 20 },
-        { name: '舞蹈室', description: '宽敞的空间，适合舞蹈练习和排练', capacity: 25 }
+        { name: '多功能活动室', description: '可用于会议、培训、讲座等多种活动', capacity: 50, open_time: '08:00', close_time: '22:00' },
+        { name: '图书阅览室', description: '安静的阅读空间，提供各类图书', capacity: 30, open_time: '09:00', close_time: '21:00' },
+        { name: '健身室', description: '配备基本健身器材，适合日常锻炼', capacity: 15, open_time: '07:00', close_time: '22:00' },
+        { name: '棋牌室', description: '提供棋牌娱乐设施，适合休闲活动', capacity: 20, open_time: '08:00', close_time: '22:00' },
+        { name: '舞蹈室', description: '宽敞的空间，适合舞蹈练习和排练', capacity: 25, open_time: '08:00', close_time: '22:00' }
       ];
 
       for (const room of initRooms) {
         await client.query(
-          'INSERT INTO rooms (name, description, capacity) VALUES ($1, $2, $3)',
-          [room.name, room.description, room.capacity]
+          'INSERT INTO rooms (name, description, capacity, open_time, close_time) VALUES ($1, $2, $3, $4, $5)',
+          [room.name, room.description, room.capacity, room.open_time, room.close_time]
         );
       }
       console.log('初始化活动室数据完成');
