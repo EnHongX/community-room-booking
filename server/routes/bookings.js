@@ -83,6 +83,27 @@ function validateDateFormat(date) {
   return parsedDate instanceof Date && !isNaN(parsedDate);
 }
 
+async function checkOpenTimeConflict(roomId, startTime, endTime) {
+  const room = await db.queryOne('SELECT open_time, close_time FROM rooms WHERE id = ?', [roomId]);
+  if (!room) {
+    return { conflict: true, message: '活动室不存在' };
+  }
+  
+  const roomOpenTime = room.open_time || '08:00';
+  const roomCloseTime = room.close_time || '22:00';
+  
+  if (startTime < roomOpenTime || endTime > roomCloseTime) {
+    return {
+      conflict: true,
+      message: `预约时间超出开放时间范围（${roomOpenTime} - ${roomCloseTime}）`,
+      openTime: roomOpenTime,
+      closeTime: roomCloseTime
+    };
+  }
+  
+  return { conflict: false };
+}
+
 router.get('/', async (req, res) => {
   try {
     const { room_id, date } = req.query;
@@ -144,6 +165,20 @@ router.get('/check-conflict', async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         message: '开始时间必须早于结束时间' 
+      });
+    }
+    
+    const openTimeResult = await checkOpenTimeConflict(room_id, start_time, end_time);
+    if (openTimeResult.conflict) {
+      return res.status(400).json({ 
+        success: false, 
+        message: openTimeResult.message,
+        data: {
+          hasConflict: true,
+          conflictType: 'open_time',
+          openTime: openTimeResult.openTime,
+          closeTime: openTimeResult.closeTime
+        }
       });
     }
     
@@ -214,6 +249,14 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         message: '开始时间必须早于结束时间' 
+      });
+    }
+    
+    const openTimeResult = await checkOpenTimeConflict(room_id, start_time, end_time);
+    if (openTimeResult.conflict) {
+      return res.status(400).json({ 
+        success: false, 
+        message: openTimeResult.message
       });
     }
     

@@ -119,7 +119,7 @@ router.get('/rooms/:id', adminAuthMiddleware, async (req, res) => {
 
 router.post('/rooms', adminAuthMiddleware, async (req, res) => {
   try {
-    const { name, description, capacity } = req.body;
+    const { name, description, capacity, open_time, close_time } = req.body;
     
     if (!name) {
       return res.status(400).json({ success: false, message: '活动室名称为必填项' });
@@ -129,9 +129,20 @@ router.post('/rooms', adminAuthMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: '容纳人数必须大于0' });
     }
     
+    const actualOpenTime = open_time || '08:00';
+    const actualCloseTime = close_time || '22:00';
+    
+    if (!validateTimeFormat(actualOpenTime) || !validateTimeFormat(actualCloseTime)) {
+      return res.status(400).json({ success: false, message: '时间格式不正确，应为 HH:MM' });
+    }
+    
+    if (actualOpenTime >= actualCloseTime) {
+      return res.status(400).json({ success: false, message: '开放开始时间必须早于结束时间' });
+    }
+    
     const result = await db.run(
-      'INSERT INTO rooms (name, description, capacity) VALUES (?, ?, ?)',
-      [name, description || '', capacity]
+      'INSERT INTO rooms (name, description, capacity, open_time, close_time) VALUES (?, ?, ?, ?, ?)',
+      [name, description || '', capacity, actualOpenTime, actualCloseTime]
     );
     
     res.status(201).json({
@@ -141,7 +152,9 @@ router.post('/rooms', adminAuthMiddleware, async (req, res) => {
         id: result.lastID,
         name,
         description,
-        capacity
+        capacity,
+        open_time: actualOpenTime,
+        close_time: actualCloseTime
       }
     });
   } catch (error) {
@@ -153,7 +166,7 @@ router.post('/rooms', adminAuthMiddleware, async (req, res) => {
 router.put('/rooms/:id', adminAuthMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, capacity } = req.body;
+    const { name, description, capacity, open_time, close_time } = req.body;
     
     const existingRoom = await db.queryOne('SELECT * FROM rooms WHERE id = ?', [id]);
     if (!existingRoom) {
@@ -168,6 +181,29 @@ router.put('/rooms/:id', adminAuthMiddleware, async (req, res) => {
         return res.status(400).json({ success: false, message: '容纳人数必须大于0' });
       }
       updates.capacity = capacity;
+    }
+    
+    const currentOpenTime = open_time !== undefined ? open_time : existingRoom.open_time;
+    const currentCloseTime = close_time !== undefined ? close_time : existingRoom.close_time;
+    
+    if (open_time !== undefined) {
+      if (!validateTimeFormat(open_time)) {
+        return res.status(400).json({ success: false, message: '开放时间格式不正确，应为 HH:MM' });
+      }
+      updates.open_time = open_time;
+    }
+    
+    if (close_time !== undefined) {
+      if (!validateTimeFormat(close_time)) {
+        return res.status(400).json({ success: false, message: '关闭时间格式不正确，应为 HH:MM' });
+      }
+      updates.close_time = close_time;
+    }
+    
+    if (open_time !== undefined || close_time !== undefined) {
+      if (currentOpenTime >= currentCloseTime) {
+        return res.status(400).json({ success: false, message: '开放开始时间必须早于结束时间' });
+      }
     }
     
     if (Object.keys(updates).length === 0) {

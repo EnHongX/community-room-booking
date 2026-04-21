@@ -270,6 +270,8 @@ function HomePage() {
         message.error(conflictResult.conflictingMaintenance?.status === 'maintenance'
           ? '该时段活动室正在维护中，无法预约'
           : '该时段活动室暂停开放，无法预约');
+      } else if (conflictResult.conflictType === 'open_time') {
+        message.error(conflictResult.message || '预约时间超出开放时间范围');
       } else {
         message.error('时间冲突，该时段已被预约，请选择其他时间');
       }
@@ -322,6 +324,44 @@ function HomePage() {
 
   const disabledDate = (current) => {
     return current && current < dayjs().startOf('day');
+  };
+
+  const disabledTime = (type) => {
+    if (!selectedRoom) return {};
+    
+    const openTime = selectedRoom.open_time || '08:00';
+    const closeTime = selectedRoom.close_time || '22:00';
+    
+    const openHour = parseInt(openTime.split(':')[0]);
+    const openMinute = parseInt(openTime.split(':')[1]);
+    const closeHour = parseInt(closeTime.split(':')[0]);
+    const closeMinute = parseInt(closeTime.split(':')[1]);
+    
+    return {
+      disabledHours: () => {
+        const hours = [];
+        for (let i = 0; i < 24; i++) {
+          if (i < openHour || i > closeHour) {
+            hours.push(i);
+          }
+        }
+        return hours;
+      },
+      disabledMinutes: (selectedHour) => {
+        const minutes = [];
+        if (selectedHour === openHour) {
+          for (let i = 0; i < openMinute; i++) {
+            minutes.push(i);
+          }
+        }
+        if (selectedHour === closeHour) {
+          for (let i = closeMinute; i < 60; i++) {
+            minutes.push(i);
+          }
+        }
+        return minutes;
+      }
+    };
   };
 
   const handleLogout = async () => {
@@ -669,6 +709,7 @@ function HomePage() {
                       format="HH:mm"
                       minuteStep={30}
                       placeholder="请选择开始时间"
+                      disabledTime={() => disabledTime('start')}
                     />
                   </Form.Item>
                 </Col>
@@ -688,10 +729,20 @@ function HomePage() {
                       format="HH:mm"
                       minuteStep={30}
                       placeholder="请选择结束时间"
+                      disabledTime={() => disabledTime('end')}
                     />
                   </Form.Item>
                 </Col>
               </Row>
+              
+              {selectedRoom && (
+                <div style={{ marginBottom: '16px', padding: '8px 12px', background: '#f0f5ff', borderRadius: '4px' }}>
+                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                    <InfoCircleOutlined style={{ marginRight: '4px' }} />
+                    该活动室开放时间：{selectedRoom.open_time || '08:00'} - {selectedRoom.close_time || '22:00'}
+                  </Text>
+                </div>
+              )}
 
               <Divider />
 

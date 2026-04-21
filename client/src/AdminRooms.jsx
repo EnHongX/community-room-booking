@@ -135,7 +135,9 @@ function AdminRooms() {
     form.setFieldsValue({
       name: record.name,
       description: record.description,
-      capacity: record.capacity
+      capacity: record.capacity,
+      open_time: record.open_time ? dayjs(record.open_time, 'HH:mm') : dayjs('08:00', 'HH:mm'),
+      close_time: record.close_time ? dayjs(record.close_time, 'HH:mm') : dayjs('22:00', 'HH:mm')
     });
     setModalVisible(true);
   };
@@ -165,15 +167,21 @@ function AdminRooms() {
   const handleSubmit = async (values) => {
     setSubmitting(true);
     try {
+      const submitData = {
+        ...values,
+        open_time: values.open_time ? values.open_time.format('HH:mm') : '08:00',
+        close_time: values.close_time ? values.close_time.format('HH:mm') : '22:00'
+      };
+      
       if (editingRoom) {
-        const response = await axios.put(`/api/admin/rooms/${editingRoom.id}`, values);
+        const response = await axios.put(`/api/admin/rooms/${editingRoom.id}`, submitData);
         if (response.data.success) {
           message.success('活动室更新成功');
           setModalVisible(false);
           fetchRooms();
         }
       } else {
-        const response = await axios.post('/api/admin/rooms', values);
+        const response = await axios.post('/api/admin/rooms', submitData);
         if (response.data.success) {
           message.success('活动室创建成功');
           setModalVisible(false);
@@ -285,15 +293,11 @@ function AdminRooms() {
 
   const columns = [
     {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 80,
-    },
-    {
       title: '活动室名称',
       dataIndex: 'name',
       key: 'name',
+      width: 200,
+      fixed: 'left',
       render: (text) => (
         <Space>
           <HomeOutlined style={{ color: '#1890ff' }} />
@@ -318,9 +322,20 @@ function AdminRooms() {
       ),
     },
     {
+      title: '开放时间',
+      key: 'openTime',
+      width: 150,
+      render: (_, record) => (
+        <Tag icon={<ClockCircleOutlined />} color="blue">
+          {record.open_time || '08:00'} - {record.close_time || '22:00'}
+        </Tag>
+      ),
+    },
+    {
       title: '简介',
       dataIndex: 'description',
       key: 'description',
+      width: 250,
       ellipsis: true,
       render: (text) => (
         <Text type="secondary">
@@ -351,18 +366,21 @@ function AdminRooms() {
     {
       title: '操作',
       key: 'action',
-      width: 250,
+      width: 280,
+      fixed: 'right',
       render: (_, record) => (
-        <Space size="middle">
+        <Space size="small">
           <Button
             type="link"
+            size="small"
             icon={<SettingOutlined />}
             onClick={() => handleOpenStatusModal(record)}
           >
-            状态管理
+            状态
           </Button>
           <Button
             type="link"
+            size="small"
             icon={<EditOutlined />}
             onClick={() => handleEditRoom(record)}
           >
@@ -378,6 +396,7 @@ function AdminRooms() {
           >
             <Button
               type="link"
+              size="small"
               danger
               icon={<DeleteOutlined />}
             >
@@ -420,6 +439,7 @@ function AdminRooms() {
           rowKey="id"
           loading={loading}
           bordered
+          scroll={{ x: 1300 }}
           pagination={{
             pageSize: 10,
             showSizeChanger: true,
@@ -493,6 +513,39 @@ function AdminRooms() {
               addonAfter="人"
             />
           </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="open_time"
+                label="开放开始时间"
+                rules={[{ required: true, message: '请选择开放开始时间' }]}
+              >
+                <TimePicker
+                  style={{ width: '100%' }}
+                  format="HH:mm"
+                  minuteStep={30}
+                  placeholder="请选择开放开始时间"
+                  prefix={<ClockCircleOutlined style={{ color: '#999' }} />}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="close_time"
+                label="开放结束时间"
+                rules={[{ required: true, message: '请选择开放结束时间' }]}
+              >
+                <TimePicker
+                  style={{ width: '100%' }}
+                  format="HH:mm"
+                  minuteStep={30}
+                  placeholder="请选择开放结束时间"
+                  prefix={<ClockCircleOutlined style={{ color: '#999' }} />}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
 
           <Form.Item style={{ marginBottom: 0, marginTop: '24px' }}>
             <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
