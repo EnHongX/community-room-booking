@@ -171,12 +171,6 @@ function AdminAnnouncements() {
 
   const columns = [
     {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 80,
-    },
-    {
       title: '公告标题',
       dataIndex: 'title',
       key: 'title',

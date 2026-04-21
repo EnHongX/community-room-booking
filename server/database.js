@@ -182,6 +182,26 @@ const initDb = async () => {
       console.log('已添加 participants 字段到 bookings 表');
     }
 
+    const rescheduleRequestColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'bookings' AND column_name = 'reschedule_request'
+    `);
+    
+    if (rescheduleRequestColumnCheck.rows.length === 0) {
+      await client.query(`ALTER TABLE bookings ADD COLUMN reschedule_request JSONB`);
+      console.log('已添加 reschedule_request 字段到 bookings 表');
+    }
+
+    const rescheduleStatusColumnCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'bookings' AND column_name = 'reschedule_status'
+    `);
+    
+    if (rescheduleStatusColumnCheck.rows.length === 0) {
+      await client.query(`ALTER TABLE bookings ADD COLUMN reschedule_status TEXT`);
+      console.log('已添加 reschedule_status 字段到 bookings 表');
+    }
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS room_maintenance (
         id SERIAL PRIMARY KEY,

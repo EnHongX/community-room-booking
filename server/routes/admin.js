@@ -439,6 +439,98 @@ router.put('/bookings/:id/reject', adminAuthMiddleware, async (req, res) => {
   }
 });
 
+router.put('/bookings/:id/reschedule/approve', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user.id;
+    
+    const booking = await db.queryOne('SELECT * FROM bookings WHERE id = ?', [id]);
+    
+    if (!booking) {
+      return res.status(404).json({ success: false, message: '预约不存在' });
+    }
+    
+    if (!booking.reschedule_request || booking.reschedule_status !== 'pending') {
+      return res.status(400).json({ 
+        success: false, 
+        message: '没有待处理的改期申请' 
+      });
+    }
+    
+    const rescheduleRequest = JSON.parse(booking.reschedule_request);
+    
+    await db.run(`
+      UPDATE bookings 
+      SET date = ?, start_time = ?, end_time = ?, 
+          reschedule_request = null, reschedule_status = 'approved',
+          reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ?
+      WHERE id = ?
+    `, [rescheduleRequest.date, rescheduleRequest.start_time, rescheduleRequest.end_time, adminId, id]);
+    
+    const updatedBooking = await db.queryOne(`
+      SELECT b.*, r.name as room_name, u.email as user_email
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      LEFT JOIN users u ON b.user_id = u.id
+      WHERE b.id = ?
+    `, [id]);
+    
+    res.json({
+      success: true,
+      message: '改期申请已通过',
+      data: updatedBooking
+    });
+  } catch (error) {
+    console.error('通过改期申请失败:', error);
+    res.status(500).json({ success: false, message: '通过改期申请失败，请稍后重试' });
+  }
+});
+
+router.put('/bookings/:id/reschedule/reject', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reject_reason } = req.body;
+    const adminId = req.user.id;
+    
+    const booking = await db.queryOne('SELECT * FROM bookings WHERE id = ?', [id]);
+    
+    if (!booking) {
+      return res.status(404).json({ success: false, message: '预约不存在' });
+    }
+    
+    if (!booking.reschedule_request || booking.reschedule_status !== 'pending') {
+      return res.status(400).json({ 
+        success: false, 
+        message: '没有待处理的改期申请' 
+      });
+    }
+    
+    await db.run(`
+      UPDATE bookings 
+      SET reschedule_request = null, reschedule_status = 'rejected',
+          reject_reason = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ?
+      WHERE id = ?
+    `, [reject_reason || null, adminId, id]);
+    
+    const updatedBooking = await db.queryOne(`
+      SELECT b.*, r.name as room_name, u.email as user_email
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      LEFT JOIN users u ON b.user_id = u.id
+      WHERE b.id = ?
+    `, [id]);
+    
+    res.json({
+      success: true,
+      message: '改期申请已驳回',
+      data: updatedBooking
+    });
+  } catch (error) {
+    console.error('驳回改期申请失败:', error);
+    res.status(500).json({ success: false, message: '驳回改期申请失败，请稍后重试' });
+  }
+});
+
 router.get('/rooms/:id/maintenance', adminAuthMiddleware, async (req, res) => {
   try {
     const { id } = req.params;

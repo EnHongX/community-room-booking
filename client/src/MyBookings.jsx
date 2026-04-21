@@ -15,7 +15,11 @@ import {
   Divider,
   Empty,
   Tabs,
-  Popconfirm
+  Popconfirm,
+  Form,
+  DatePicker,
+  TimePicker,
+  Alert
 } from 'antd';
 import {
   CalendarOutlined,
@@ -30,11 +34,14 @@ import {
   EyeOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  TeamOutlined
+  TeamOutlined,
+  EditOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import dayjs from 'dayjs';
+
+const { RangePicker } = TimePicker;
 
 const { Title, Text } = Typography;
 
@@ -81,6 +88,9 @@ function MyBookings() {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [cancelling, setCancelling] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
+  const [rescheduleModalVisible, setRescheduleModalVisible] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
+  const [rescheduleForm] = Form.useForm();
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -176,6 +186,41 @@ function MyBookings() {
       console.error('取消预约失败:', error);
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleReschedule = (booking) => {
+    setSelectedBooking(booking);
+    rescheduleForm.resetFields();
+    setRescheduleModalVisible(true);
+  };
+
+  const handleSubmitReschedule = async (values) => {
+    if (!selectedBooking) return;
+
+    setRescheduling(true);
+    try {
+      const [startTime, endTime] = values.time;
+      const response = await axios.put(`/api/bookings/${selectedBooking.id}/reschedule`, {
+        date: values.date.format('YYYY-MM-DD'),
+        start_time: startTime.format('HH:mm'),
+        end_time: endTime.format('HH:mm')
+      });
+      if (response.data.success) {
+        message.success('改期申请已提交，等待管理员审核');
+        setRescheduleModalVisible(false);
+        setSelectedBooking(null);
+        fetchBookings();
+      }
+    } catch (error) {
+      if (error.response?.data?.message) {
+        message.error(error.response.data.message);
+      } else {
+        message.error('提交改期申请失败');
+      }
+      console.error('提交改期申请失败:', error);
+    } finally {
+      setRescheduling(false);
     }
   };
 
@@ -494,6 +539,19 @@ function MyBookings() {
                 >
                   关闭
                 </Button>
+                {(selectedBooking.status === 'approved' || selectedBooking.status === 'active') && 
+                 selectedBooking.reschedule_status !== 'pending' && (
+                  <Button
+                    type="primary"
+                    icon={<EditOutlined />}
+                    onClick={() => {
+                      setDetailModalVisible(false);
+                      handleReschedule(selectedBooking);
+                    }}
+                  >
+                    申请改期
+                  </Button>
+                )}
                 {selectedBooking.status === 'active' && (
                   <Popconfirm
                     title="确认取消预约"
@@ -516,6 +574,84 @@ function MyBookings() {
               </Space>
             </div>
           </>
+        )}
+      </Modal>
+
+      <Modal
+        title={
+          <Space>
+            <EditOutlined />
+            <span>申请改期</span>
+          </Space>
+        }
+        open={rescheduleModalVisible}
+        onCancel={() => {
+          setRescheduleModalVisible(false);
+          setSelectedBooking(null);
+        }}
+        footer={null}
+        width={600}
+      >
+        {selectedBooking && (
+          <div>
+            <Alert
+              message="改期申请"
+              description="请选择新的预约日期和时间段，提交后将等待管理员审核。"
+              type="info"
+              showIcon
+              style={{ marginBottom: '24px' }}
+            />
+            
+            <Form
+              form={rescheduleForm}
+              layout="vertical"
+              onFinish={handleSubmitReschedule}
+            >
+              <Form.Item
+                name="date"
+                label="新的预约日期"
+                rules={[{ required: true, message: '请选择日期' }]}
+              >
+                <DatePicker
+                  style={{ width: '100%' }}
+                  disabledDate={(current) => current && current < dayjs().startOf('day')}
+                  placeholder="选择日期"
+                />
+              </Form.Item>
+              
+              <Form.Item
+                name="time"
+                label="新的预约时间段"
+                rules={[{ required: true, message: '请选择时间段' }]}
+              >
+                <RangePicker
+                  style={{ width: '100%' }}
+                  format="HH:mm"
+                  placeholder={['开始时间', '结束时间']}
+                />
+              </Form.Item>
+              
+              <Form.Item style={{ marginBottom: 0 }}>
+                <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+                  <Button
+                    onClick={() => {
+                      setRescheduleModalVisible(false);
+                      setSelectedBooking(null);
+                    }}
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    loading={rescheduling}
+                  >
+                    提交改期申请
+                  </Button>
+                </Space>
+              </Form.Item>
+            </Form>
+          </div>
         )}
       </Modal>
     </div>

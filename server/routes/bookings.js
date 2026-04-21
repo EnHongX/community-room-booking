@@ -426,4 +426,127 @@ router.put('/:id/cancel', authMiddleware, async (req, res) => {
   }
 });
 
+router.put('/:id/reschedule', authMiddleware, async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const userId = req.user.id;
+    const { date, start_time, end_time } = req.body;
+    
+    if (!date || !start_time || !end_time) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '缺少必要参数: date, start_time, end_time' 
+      });
+    }
+    
+    const booking = await db.queryOne(`
+      SELECT * FROM bookings 
+      WHERE id = ? AND user_id = ?
+    `, [bookingId, userId]);
+    
+    if (!booking) {
+      return res.status(404).json({ 
+        success: false, 
+        message: '预约不存在或无权访问' 
+      });
+    }
+    
+    if (booking.status !== 'approved' && booking.status !== 'active') {
+      return res.status(400).json({ 
+        success: false, 
+        message: '只有已通过或进行中的预约才能申请改期' 
+      });
+    }
+    
+    if (booking.reschedule_status === 'pending') {
+      return res.status(400).json({ 
+        success: false, 
+        message: '已有改期申请待处理' 
+      });
+    }
+    
+    if (!validateDateFormat(date)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '日期格式不正确，应为 YYYY-MM-DD' 
+      });
+    }
+    
+    if (!validateTimeFormat(start_time) || !validateTimeFormat(end_time)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '时间格式不正确，应为 HH:MM' 
+      });
+    }
+    
+    if (start_time >= end_time) {
+      return res.status(400).json({ 
+        success: false, 
+        message: '开始时间必须早于结束时间' 
+      });
+    }
+    
+    const openTimeResult = await checkOpenTimeConflict(booking.room_id, start_time, end_time);
+    if (openTimeResult.conflict) {
+      return res.status(400).json({ 
+        success: false, 
+        message: openTimeResult.message
+      });
+    }
+    
+    const maintenanceResult = await checkMaintenanceConflict(booking.room_id, date, start_time, end_time);
+    if (maintenanceResult.conflict) {
+      return res.status(409).json({ 
+        success: false, 
+        message: maintenanceResult.conflictingMaintenance.status === 'maintenance'
+          ? '该时段活动室正在维护中，无法预约'
+          : '该时段活动室暂停开放，无法预约',
+        data: {
+          conflictingMaintenance: maintenanceResult.conflictingMaintenance
+        }
+      });
+    }
+    
+    const conflictResult = await checkTimeConflict(booking.room_id, date, start_time, end_time, bookingId);
+    if (conflictResult.conflict) {
+      return res.status(409).json({ 
+        success: false, 
+        message: '时间冲突，该时段已被预约',
+        data: {
+          conflictingBooking: conflictResult.conflictingBooking
+        }
+      });
+    }
+    
+    const rescheduleRequest = {
+      date,
+      start_time,
+      end_time,
+      requested_at: new Date().toISOString()
+    };
+    
+    await db.run(`
+      UPDATE bookings 
+      SET reschedule_request = ?, reschedule_status = 'pending'
+      WHERE id = ?
+    `, [JSON.stringify(rescheduleRequest), bookingId]);
+    
+    const updatedBooking = await db.queryOne(`
+      SELECT b.*, r.name as room_name 
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      WHERE b.id = ?
+    `, [bookingId]);
+    
+    res.json({ 
+      success: true, 
+      message: '改期申请已提交，等待管理员审核',
+      data: updatedBooking
+    });
+  } catch (error) {
+    console.error('提交改期申请失败:', error);
+    res.status(500).json({ success: false, message: '提交改期申请失败' });
+  }
+});
+
 module.exports = router;
