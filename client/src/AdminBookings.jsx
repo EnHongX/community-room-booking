@@ -178,6 +178,64 @@ function AdminBookings() {
     }
   };
 
+  const handleApproveReschedule = async () => {
+    if (!selectedBooking) return;
+
+    setSubmitting(true);
+    try {
+      const response = await axios.put(`/api/admin/bookings/${selectedBooking.id}/reschedule/approve`);
+      if (response.data.success) {
+        message.success('改期申请已通过');
+        setDetailModalVisible(false);
+        fetchBookings(pagination.current, pagination.pageSize, statusFilter);
+      }
+    } catch (error) {
+      if (error.response?.status === 400) {
+        message.error(error.response.data?.message || '操作失败');
+      } else if (error.response?.status === 401 || error.response?.status === 403) {
+        localStorage.removeItem('admin');
+        localStorage.removeItem('adminSessionId');
+        navigate('/admin/login');
+        message.error('登录已过期，请重新登录');
+      } else {
+        message.error('操作失败，请稍后重试');
+        console.error('通过改期申请失败:', error);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRejectReschedule = async (values) => {
+    if (!selectedBooking) return;
+
+    setSubmitting(true);
+    try {
+      const response = await axios.put(`/api/admin/bookings/${selectedBooking.id}/reschedule/reject`, {
+        reject_reason: values.reject_reason
+      });
+      if (response.data.success) {
+        message.success('改期申请已驳回');
+        setDetailModalVisible(false);
+        fetchBookings(pagination.current, pagination.pageSize, statusFilter);
+      }
+    } catch (error) {
+      if (error.response?.status === 400) {
+        message.error(error.response.data?.message || '操作失败');
+      } else if (error.response?.status === 401 || error.response?.status === 403) {
+        localStorage.removeItem('admin');
+        localStorage.removeItem('adminSessionId');
+        navigate('/admin/login');
+        message.error('登录已过期，请重新登录');
+      } else {
+        message.error('操作失败，请稍后重试');
+        console.error('驳回改期申请失败:', error);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleStatusChange = (value) => {
     setStatusFilter(value || null);
     setPagination(prev => ({ ...prev, current: 1 }));
@@ -193,15 +251,11 @@ function AdminBookings() {
 
   const columns = [
     {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 80,
-    },
-    {
       title: '活动室名称',
       dataIndex: 'room_name',
       key: 'room_name',
+      fixed: 'left',
+      width: 200,
       render: (text) => (
         <Space>
           <HomeOutlined style={{ color: '#1890ff' }} />
@@ -213,6 +267,7 @@ function AdminBookings() {
       title: '预约用户',
       dataIndex: 'user_name',
       key: 'user_name',
+      width: 180,
       render: (text, record) => (
         <div>
           <Space>
@@ -258,6 +313,18 @@ function AdminBookings() {
       render: (status) => getStatusTag(status),
     },
     {
+      title: '改期状态',
+      key: 'reschedule_status',
+      width: 120,
+      render: (_, record) => (
+        record.reschedule_status ? (
+          <Tag color={record.reschedule_status === 'pending' ? 'orange' : record.reschedule_status === 'approved' ? 'green' : 'red'}>
+            {record.reschedule_status === 'pending' ? '改期待处理' : record.reschedule_status === 'approved' ? '改期已通过' : '改期已驳回'}
+          </Tag>
+        ) : '-'  
+      ),
+    },
+    {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
@@ -269,6 +336,7 @@ function AdminBookings() {
     {
       title: '操作',
       key: 'action',
+      fixed: 'right',
       width: 120,
       render: (_, record) => (
         <Space size="middle">
@@ -330,6 +398,9 @@ function AdminBookings() {
             showTotal: (total) => `共 ${total} 条记录`,
             pageSizeOptions: ['10', '20', '50'],
           }}
+          scroll={{
+            x: 1200,
+          }}
         />
       </Card>
 
@@ -362,6 +433,13 @@ function AdminBookings() {
               <Descriptions.Item label="预约状态">
                 {getStatusTag(selectedBooking.status)}
               </Descriptions.Item>
+              {selectedBooking.reschedule_status && (
+                <Descriptions.Item label="改期状态" span={2}>
+                  <Tag color={selectedBooking.reschedule_status === 'pending' ? 'orange' : selectedBooking.reschedule_status === 'approved' ? 'green' : 'red'}>
+                    {selectedBooking.reschedule_status === 'pending' ? '改期待处理' : selectedBooking.reschedule_status === 'approved' ? '改期已通过' : '改期已驳回'}
+                  </Tag>
+                </Descriptions.Item>
+              )}
               <Descriptions.Item label="活动室名称" span={2}>
                 <Space>
                   <HomeOutlined />
@@ -397,6 +475,27 @@ function AdminBookings() {
                   <Text>{selectedBooking.start_time} - {selectedBooking.end_time}</Text>
                 </Space>
               </Descriptions.Item>
+              {selectedBooking.reschedule_request && (
+                <>
+                  <Descriptions.Item label="申请改期日期" span={2}>
+                    <Space>
+                      <CalendarOutlined />
+                      <Text type="warning">{selectedBooking.reschedule_request.date}</Text>
+                    </Space>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="申请改期时间" span={2}>
+                    <Space>
+                      <ClockCircleOutlined />
+                      <Text type="warning">{selectedBooking.reschedule_request.start_time} - {selectedBooking.reschedule_request.end_time}</Text>
+                    </Space>
+                  </Descriptions.Item>
+                  {selectedBooking.reschedule_request.requested_at && (
+                    <Descriptions.Item label="改期申请时间" span={2}>
+                      {new Date(selectedBooking.reschedule_request.requested_at).toLocaleString('zh-CN')}
+                    </Descriptions.Item>
+                  )}
+                </>
+              )}
               {selectedBooking.participants && (
                 <Descriptions.Item label="参与人数">
                   <Space>
@@ -477,6 +576,72 @@ function AdminBookings() {
                         style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
                       >
                         通过
+                      </Button>
+                    </Space>
+                  </Form.Item>
+                </Form>
+              </>
+            )}
+
+            {selectedBooking.reschedule_status === 'pending' && (
+              <>
+                <Divider>改期申请审核</Divider>
+                <Alert
+                  message="改期申请"
+                  description="用户申请修改预约时间，您可以选择通过或驳回此申请。"
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: '20px' }}
+                />
+                <Form
+                  form={rejectForm}
+                  layout="vertical"
+                  onFinish={handleRejectReschedule}
+                >
+                  <Form.Item
+                    name="reject_reason"
+                    label={
+                      <Space>
+                        <InfoCircleOutlined />
+                        <span>驳回原因（选填）</span>
+                      </Space>
+                    }
+                  >
+                    <TextArea
+                      rows={3}
+                      placeholder="请输入驳回原因（选填）"
+                      maxLength={200}
+                      showCount
+                    />
+                  </Form.Item>
+
+                  <Form.Item style={{ marginBottom: 0 }}>
+                    <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+                      <Button
+                        onClick={() => setDetailModalVisible(false)}
+                        size="large"
+                      >
+                        取消
+                      </Button>
+                      <Button
+                        type="primary"
+                        danger
+                        icon={<CloseCircleOutlined />}
+                        htmlType="submit"
+                        loading={submitting}
+                        size="large"
+                      >
+                        驳回改期
+                      </Button>
+                      <Button
+                        type="primary"
+                        icon={<CheckCircleOutlined />}
+                        onClick={handleApproveReschedule}
+                        loading={submitting}
+                        size="large"
+                        style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+                      >
+                        通过改期
                       </Button>
                     </Space>
                   </Form.Item>
