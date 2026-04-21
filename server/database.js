@@ -214,21 +214,16 @@ const initDb = async () => {
       )
     `);
 
-    const statusColumnCheck = await client.query(`
-      SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'announcements' AND column_name = 'status'
-    `);
-
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_announcements_status ON announcements(status)
     `);
 
     await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_announcements_created_at ON announcements(created_at DESC)
+      CREATE INDEX IF NOT EXISTS idx_announcements_created_at ON announcements(created_at)
     `);
 
     await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_announcements_published_at ON announcements(published_at DESC)
+      CREATE INDEX IF NOT EXISTS idx_announcements_published_at ON announcements(published_at)
     `);
   } catch (error) {
     throw error;
